@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<!--
+  ═════════════════════════════════════════════════════════════════
+  开屏特效 · 通用模板（主轨劈开 → 辅轨展开 → 三环光圈水波涟漪晕开 → 全屏清晰）
+  ─────────────────────────────────────────────────────────────────
+  ▍换背景图   改脚本里 CONFIG.bgImage（文件 / URL / dataURI 均可），
+              或把你的图命名为 bg.jpg 放在本文件同目录（建议 ≥1920 宽横图）
+  ▍做视频开头 浏览器打开本文件 → F11 全屏 → 录屏即可；要离线单文件
+              就运行 build_universal.py 打包（背景图 base64 内联）
+  ▍加到网页   ① 把 <main id="site">…</main> 整块换成你自己的页面内容；
+              ② 或在任意网页嵌入：
+              <iframe src="开屏特效_通用模板.html" style="position:fixed;inset:0;width:100%;height:100%;border:0;z-index:99999"></iframe>
+  ▍品牌文案   直接改 HTML 里 <div class="brand"> 与 <main id="site"> 的演示文字
+  ▍时间轴     speed=0.8：0.24s 主轨劈开 → 1.01s 涟漪小点 → 2.05s 辅轨满屏
+              → 2.36s 光圈收满全清晰 → 2.76s 品牌定格 → ≈3.7s 收尾完毕
+  ═════════════════════════════════════════════════════════════════
+-->
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>开屏特效 · 通用模板</title>
+<style>
+  :root { color-scheme: dark; --bg: url('bg.jpg'); }   /* 默认背景图，JS 会用 CONFIG.bgImage 覆盖 */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; overflow: hidden; }
+  body {
+    background: #070a07;
+    font-family: system-ui, "PingFang SC", "Microsoft YaHei", sans-serif;
+    color: #e8eee6;
+  }
+
+  /* ========= 演示站点（开屏之下的内容） ========= */
+  #site {
+    height: 100%;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 22px; text-align: center;
+    background:
+      radial-gradient(1200px 600px at 70% -10%, rgba(64,120,52,.18), transparent 60%),
+      radial-gradient(900px 500px at 10% 110%, rgba(30,80,40,.22), transparent 60%),
+      #070a07;
+  }
+  #site .kicker { font-size: 12px; letter-spacing: .5em; color: #7fa874; text-indent: .5em; }
+  #site h1 { font-size: clamp(26px, 4.6vw, 46px); font-weight: 700; letter-spacing: .12em; }
+  #site h1 em { font-style: normal; color: #9fd18a; }
+  #site .desc { font-size: 14px; color: #9aa79a; max-width: 560px; line-height: 1.9; padding: 0 24px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; padding: 0 20px; }
+  .chip {
+    font-size: 12px; letter-spacing: .18em; color: #b9c9b4;
+    border: 1px solid rgba(159,209,138,.28); border-radius: 999px;
+    padding: 7px 16px 7px 18px; background: rgba(159,209,138,.06);
+  }
+  .actions { display: flex; gap: 14px; margin-top: 6px; }
+  .btn {
+    cursor: pointer; border-radius: 999px; font-size: 14px; letter-spacing: .22em; text-indent: .22em;
+    padding: 13px 34px; border: 1px solid rgba(159,209,138,.45);
+    background: rgba(159,209,138,.12); color: #dff0d5;
+    transition: background .25s, transform .2s;
+  }
+  .btn:hover { background: rgba(159,209,138,.22); transform: translateY(-1px); }
+  .btn.ghost { background: transparent; color: #8fa48b; border-color: rgba(159,209,138,.2); }
+  .btn.ghost:hover { color: #cfe3c6; }
+  #site .foot { position: absolute; bottom: 26px; font-size: 12px; color: #5c6b5a; letter-spacing: .12em; }
+
+  /* ========= 开屏层 ========= */
+  #splash { position: fixed; inset: 0; z-index: 100; background: #000; }
+  #splash.done { display: none; }
+
+  /* 世界容器：全部背景图层共用一个缓慢漂移变换（保持图层间像素对齐） */
+  #world { position: absolute; inset: 0; transform: translate3d(0,0,0) scale(1.07); will-change: transform; }
+
+  .scene { position: absolute; inset: 0; z-index: 1; }
+  .scene img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+  .blackout { position: absolute; inset: 0; z-index: 2; background: #000; }
+
+  /* 辅轨道：主轨为根基、主轨中心为分界线——左辅轨贴上半截先向左展、右辅轨贴下半截先向右展，
+     再分别向长方形左下角 / 右上角对角生长，u≈0.54 合成 4/7 屏宽 × 全高标准长方形，
+     随后两侧向左右铺满全屏；外框 overflow:hidden 保证边界锐利，内层外扩模糊 = 灰白模糊内容 */
+  .aux {
+    position: absolute; z-index: 4; overflow: hidden; pointer-events: none;
+    will-change: transform;
+  }
+  .aux-in {
+    position: absolute;
+    background: var(--bg) no-repeat;
+    filter: grayscale(1) brightness(1.32) contrast(.92) blur(3px);
+  }
+
+  /* 光圈裁剪容器：光圈轮廓只显示在已展开轨道（左辅轨/主轨竖带/右辅轨）内、不外溢；
+     三容器拼出完整光圈 —— 主轨竖带容器使光圈不再被主轨切成两半。
+     外框 overflow:hidden 裁剪，内层 100vw 世界按矩形负偏移，背景与全屏 cover 逐像素对齐 */
+  .iris-clip {
+    position: absolute; left: 0; top: 0; z-index: 5;
+    width: 0; height: 0; overflow: hidden; pointer-events: none;
+    will-change: transform;
+  }
+  .iris-world { position: absolute; width: 100vw; height: 100vh; }
+
+  /* 光圈三环 · 最外圈：彩色重模糊 + 明显亮缘（圈外为辅轨灰白） */
+  .iris {
+    position: absolute; left: 50%; top: 50%; z-index: 1;
+    width: 0; height: 0; border-radius: 50%;
+    transform: translate(-50%, -50%);
+    background: var(--bg) no-repeat;
+    filter: blur(12px) saturate(1.4) brightness(1.06);
+  }
+
+  /* 光圈三环 · 次外圈：彩色轻模糊 + 亮缘（与最外圈分界明显） */
+  .mid {
+    position: absolute; left: 50%; top: 50%; z-index: 2;
+    width: 0; height: 0; border-radius: 50%;
+    transform: translate(-50%, -50%);
+    background: var(--bg) no-repeat;
+    filter: blur(3.5px);
+  }
+
+  .ring {
+    position: absolute; left: 50%; top: 50%; z-index: 3;
+    border-radius: 50%; opacity: 0; pointer-events: none;
+    background: radial-gradient(circle,
+      transparent 44%,
+      rgba(255,255,255,.50) 57%,
+      rgba(196,238,166,.34) 64%,
+      transparent 76%);
+    filter: blur(24px); mix-blend-mode: screen;
+    transform: translate(-50%, -50%);
+  }
+
+  /* 光圈三环 · 内圈：清晰实景核心 */
+  .core {
+    position: absolute; left: 50%; top: 50%; z-index: 4;
+    width: 0; height: 0; border-radius: 50%;
+    transform: translate(-50%, -50%);
+    background: var(--bg) no-repeat;
+  }
+
+  /* 光圈三环 · 内圈亮带：内圈超越次外圈后，两圈之间显示比原背景稍亮的清晰实景
+     （无阴影无模糊）；内圈未超越时被内圈核心完全覆盖、不可见 */
+  .core-bright {
+    position: absolute; left: 50%; top: 50%; z-index: 3;
+    width: 0; height: 0; border-radius: 50%;
+    transform: translate(-50%, -50%);
+    background: var(--bg) no-repeat;
+    filter: brightness(1.12);
+  }
+
+  /* 主轨道：底部劈开 → 展宽至 vw/36 → 满粗上伸（0.7s，先前速度），驻留；
+     外框 overflow:hidden 保证边界清晰，内层外扩模糊实现「内容模糊、边界锐利」 */
+  .slit {
+    position: absolute; left: 50%; bottom: 0; z-index: 3;
+    width: 0; height: 0; overflow: hidden;
+    transform: translateX(-50%);
+    /* 边界无色透明：不设任何 box-shadow/描边，锐利感由内容对比自然形成，
+       避免升满后黑色外阴影投在辅轨灰白内容上形成黑线 */
+  }
+  .slit-in {
+    position: absolute;
+    background: var(--bg) no-repeat;
+    filter: blur(3px) grayscale(1) brightness(1.32) contrast(.92);
+  }
+  /* 主轨竖带灰白垫层：1.26s 起接管 slit 显示。位于 irisClipS(z5) 内、辅轨(z4)之上，
+     其裁剪边下层是辅轨灰白而非 blackout 纯黑 → 裁剪抗锯齿不再产生暗线 */
+  .slit-pad {
+    position: absolute;
+    background: var(--bg) no-repeat;
+    filter: grayscale(1) brightness(1.32) contrast(.92) blur(3px);
+    opacity: 0;
+  }
+  /* 三环亮缘：独立元素（不被环层自身 filter:blur 模糊），圈缘分明 */
+  .edge {
+    position: absolute; left: 50%; top: 50%; border-radius: 50%;
+    transform: translate(-50%, -50%); pointer-events: none; opacity: 0;
+    border: 2.5px solid rgba(244,255,230,.92);
+    box-shadow: 0 0 12px rgba(244,255,230,.5), inset 0 0 12px rgba(244,255,230,.35);
+  }
+
+  .caption {
+    position: absolute; left: 0; right: 0; bottom: 7vh; z-index: 10;
+    text-align: center; font-size: 12px; letter-spacing: .9em; text-indent: .9em;
+    color: rgba(255,255,255,.42); opacity: 0;
+  }
+
+  .brand {
+    position: absolute; left: 4.5vw; top: 6.5vh; z-index: 11;
+    opacity: 0; transform: translateY(8px);
+    display: flex; align-items: center; gap: 12px;
+  }
+  .brand .mark {
+    width: 26px; height: 26px; display: grid; place-items: center;
+    border: 1px solid rgba(255,255,255,.75); border-radius: 6px;
+    font-size: 13px; color: #fff;
+  }
+  .brand .name { color: #fff; font-size: 15px; letter-spacing: .34em; font-weight: 600; }
+  .brand .tag { margin-top: 5px; font-size: 10.5px; letter-spacing: .3em; color: rgba(255,255,255,.62); }
+
+  .skip {
+    position: absolute; right: 4vw; bottom: 5vh; z-index: 12;
+    cursor: pointer; border: 1px solid rgba(255,255,255,.28); border-radius: 999px;
+    background: rgba(0,0,0,.25); color: rgba(255,255,255,.75);
+    font-size: 12px; letter-spacing: .3em; text-indent: .3em;
+    padding: 8px 18px; opacity: 0; transition: opacity .5s, background .2s;
+  }
+  .skip:hover { background: rgba(255,255,255,.12); }
+
+  #splash.vanish { transition: opacity .65s ease; opacity: 0; }
+
+  @media (prefers-reduced-motion: reduce) { #splash { display: none; } }
+</style>
+</head>
+<body>
+
+<!-- 开屏层 -->
+<div id="splash">
+  <div id="world">
+    <div class="scene"><img id="sceneImg" alt=""></div>
+    <div class="blackout" id="blackout"></div>
+    <div class="aux" id="auxL"><div class="aux-in" id="auxLIn"></div></div>
+    <div class="aux" id="auxR"><div class="aux-in" id="auxRIn"></div></div>
+    <div class="iris-clip" id="irisClipL"><div class="iris-world" id="irisWorldL">
+      <div class="iris" id="irisL"></div>
+      <div class="edge" id="edgeIL"></div>
+      <div class="mid" id="midL"></div>
+      <div class="edge" id="edgeML"></div>
+      <div class="ring" id="ringL"></div>
+      <div class="core-bright" id="coreBrightL"></div>
+      <div class="core" id="coreL"></div>
+      <div class="edge" id="edgeCL"></div>
+    </div></div>
+    <div class="iris-clip" id="irisClipR"><div class="iris-world" id="irisWorldR">
+      <div class="iris" id="irisR"></div>
+      <div class="edge" id="edgeIR"></div>
+      <div class="mid" id="midR"></div>
+      <div class="edge" id="edgeMR"></div>
+      <div class="ring" id="ringR"></div>
+      <div class="core-bright" id="coreBrightR"></div>
+      <div class="core" id="coreR"></div>
+      <div class="edge" id="edgeCR"></div>
+    </div></div>
+    <div class="iris-clip" id="irisClipS"><div class="iris-world" id="irisWorldS">
+      <div class="slit-pad" id="slitPad"></div>
+      <div class="iris" id="irisS"></div>
+      <div class="edge" id="edgeIS"></div>
+      <div class="mid" id="midS"></div>
+      <div class="edge" id="edgeMS"></div>
+      <div class="ring" id="ringS"></div>
+      <div class="core-bright" id="coreBrightS"></div>
+      <div class="core" id="coreS"></div>
+      <div class="edge" id="edgeCS"></div>
+    </div></div>
+    <div class="slit" id="slit"><div class="slit-in" id="slitIn"></div></div>
+  </div>
+  <div class="caption" id="caption">开 幕</div>
+  <div class="brand" id="brand">
+    <div class="mark">观</div>
+    <div>
+      <div class="name">观界影像</div>
+      <div class="tag">虹膜开屏 · 演示</div>
+    </div>
+  </div>
+  <button class="skip" id="skipBtn">跳 过</button>
+</div>
+
+<!-- 演示站点 -->
+<main id="site">
+  <div class="kicker">SPLASH TRANSITION</div>
+  <h1>刀刃 <em>×</em> 瞳孔 · 开屏转场</h1>
+  <p class="desc">
+    主轨道自底部劈开、快速展宽后以全宽（屏宽 1/36）满速上伸驻留，内容模糊而边界锐利；
+    升满后主轨边界即刻快速淡出，清晰边界交接给辅轨道——左辅轨贴上半截先向左展、
+    右辅轨贴下半截先向右展，再分别向长方形左下角 / 右上角对角生长，丝滑合成 4/7 屏宽的
+    全高标准长方形，并无缝向左右铺满全屏；主轨边界无色透明且全片无任何绿色光晕，辅轨以 easeOutQuad 单曲线匀减速展开（严格无停顿），光圈与辅轨同步（1.26s）自主轨中心一个很小的点晕开——如石子入水、涟漪渐起：单一 inOutQuad 半径曲线起止速度均为 0，慢起步、缓收尾，全片速度连续无停顿；三环自小点同生：最外圈最速、次外圈 0.87 倍速（外-次间距随半径单调增大）、内圈起初落后（约 0.54r 的清晰小点）后加速追赶，≈2.0s 追平次外圈——轻模糊淡阴影渐消、转为比原背景稍亮的清晰亮带并随涟漪渐宽，内圈全程不超最外圈，越界部分被裁剪容器裁掉，2.56s 辅轨满屏后三环依次扫出全屏（2.95s 收满出屏），圈外灰白模糊，各环以独立亮缘分界（圈缘分明）；
+    全程背景带手持感缓慢漂移。单文件零依赖。
+  </p>
+  <div class="chips">
+    <span class="chip">主轨道 · 锐边模糊刃</span>
+    <span class="chip">辅轨道 · 4/7 长方形铺满</span>
+    <span class="chip">光圈晕开 · 三环分明</span>
+    <span class="chip">圆环放大 · 圆中圆</span>
+    <span class="chip">背景 · 手持感漂移</span>
+    <span class="chip">品牌定格</span>
+  </div>
+  <div class="actions">
+    <button class="btn" id="replayBtn">重播开屏</button>
+  </div>
+  <div class="foot">替换背景：换掉页面里的 BG 图 · 品牌文案：改 .brand 节点 · 点击任意处可跳过</div>
+</main>
+
+<script>
+(function () {
+  /* ═══ 配置区：改这里即可换背景图 / 速度 ═══ */
+  var CONFIG = {
+    bgImage: 'bg.jpg',      /* 背景图：同目录文件 / 相对路径 / 网络URL / dataURI 均可 */
+    speed:   0.8,           /* 全局速度：<1 加速、>1 放慢（0.8 ≈ 整场 3 秒级） */
+    showSkip: true          /* 「跳过」按钮；点击画面任意处始终可跳过 */
+  };
+  var BG_URL = CONFIG.bgImage;
+  document.documentElement.style.setProperty('--bg', 'url("' + BG_URL + '")');
+  'use strict';
+
+  var world    = document.getElementById('world');
+  var splash   = document.getElementById('splash');
+  var blackout = document.getElementById('blackout');
+  var irisClipL = document.getElementById('irisClipL');
+  var irisClipR = document.getElementById('irisClipR');
+  var irisClipS = document.getElementById('irisClipS');
+  var irisWorldL = document.getElementById('irisWorldL');
+  var irisWorldR = document.getElementById('irisWorldR');
+  var irisWorldS = document.getElementById('irisWorldS');
+  /* 光圈三份拷贝（左辅轨/主轨竖带/右辅轨三个裁剪容器），同一参数同步驱动 */
+  var mkSet = function (suf) {
+    return { iris: document.getElementById('iris' + suf), mid: document.getElementById('mid' + suf), ring: document.getElementById('ring' + suf), coreBright: document.getElementById('coreBright' + suf), core: document.getElementById('core' + suf),
+      edgeI: document.getElementById('edgeI' + suf), edgeM: document.getElementById('edgeM' + suf), edgeC: document.getElementById('edgeC' + suf) };
+  };
+  var irisSets = [mkSet('L'), mkSet('S'), mkSet('R')];
+  var auxL     = document.getElementById('auxL');
+  var auxR     = document.getElementById('auxR');
+  var auxLIn   = document.getElementById('auxLIn');
+  var auxRIn   = document.getElementById('auxRIn');
+  var slit     = document.getElementById('slit');
+  var slitIn   = document.getElementById('slitIn');
+  var slitPad  = document.getElementById('slitPad');
+  var caption  = document.getElementById('caption');
+  var brand    = document.getElementById('brand');
+  var skipBtn  = document.getElementById('skipBtn');
+  var sceneImg = document.getElementById('sceneImg');
+  sceneImg.src = BG_URL;
+  if (!CONFIG.showSkip) skipBtn.style.display = 'none';
+
+  var SPEED = CONFIG.speed;   /* 全局速度：唯一缩放入口，所有相位等比压缩 */
+  var raf = null, t0 = 0, finished = true;
+
+  /* 背景固有尺寸（用于手动 cover 映射，与 scene 的 object-fit:cover 完全一致） */
+  var IW = 0, IH = 0;
+
+  function clamp01(x) { return x < 0 ? 0 : x > 1 ? 1 : x; }
+  function lerp(a, b, p) { return a + (b - a) * p; }
+  function outQuad(p)  { return 1 - (1 - p) * (1 - p); }
+  function inOutQuad(p) { return p < .5 ? 2 * p * p : 1 - 2 * (1 - p) * (1 - p); }
+  function inOutCubic(p) { return p < .5 ? 4*p*p*p : 1 - Math.pow(-2*p + 2, 3) / 2; }
+  function outCubic(p) { return 1 - Math.pow(1 - p, 3); }
+
+  /* 手动 cover：让任意子矩形盒子内的背景与全屏 cover 场景逐像素对齐
+     (bx,by) 盒子左上角视口坐标；bw,bh 盒子尺寸 */
+  function bgCover(el, bx, by, bw, bh) {
+    if (!IW || bw < 1 || bh < 1) return;
+    var vw = window.innerWidth, vh = window.innerHeight;
+    var sc = Math.max(vw / IW, vh / IH);
+    var dw = IW * sc, dh = IH * sc;
+    var ox = (vw - dw) / 2, oy = (vh - dh) / 2;
+    el.style.backgroundSize = dw.toFixed(1) + 'px ' + dh.toFixed(1) + 'px';
+    el.style.backgroundPosition = (ox - bx).toFixed(1) + 'px ' + (oy - by).toFixed(1) + 'px';
+  }
+
+  /* 背景漂移：多频正弦叠加模拟手持感（上下左右随机缓慢移动，幅度约视口 1.2%） */
+  function drift(t) {
+    var wx = 16 * (Math.sin(0.90 * t + 1.7) * 0.55 + Math.sin(0.37 * t + 0.4) * 0.45);
+    var wy = 13 * (Math.sin(0.74 * t + 0.9) * 0.55 + Math.sin(0.29 * t + 2.3) * 0.45);
+    var ws = 1.07 + 0.006 * Math.sin(0.23 * t + 1.1);
+    world.style.transform = 'translate3d(' + wx.toFixed(2) + 'px,' + wy.toFixed(2) + 'px,0) scale(' + ws.toFixed(4) + ')';
+  }
+
+  function reset() {
+    splash.classList.remove('vanish', 'done');
+    splash.style.opacity = '1';
+    irisClipL.style.width = '0px'; irisClipL.style.height = '0px';
+    irisClipR.style.width = '0px'; irisClipR.style.height = '0px';
+    irisSets.forEach(function (s) {
+      s.iris.style.width = '0px'; s.iris.style.height = '0px';
+      s.mid.style.width = '0px'; s.mid.style.height = '0px';
+      s.core.style.width = '0px'; s.core.style.height = '0px';
+      s.coreBright.style.width = '0px'; s.coreBright.style.height = '0px';
+      s.iris.style.opacity = '0'; s.mid.style.opacity = '0'; s.core.style.opacity = '0';
+      s.coreBright.style.opacity = '0';
+      s.mid.style.filter = '';
+      s.ring.style.opacity = '0';
+      s.edgeI.style.opacity = '0'; s.edgeM.style.opacity = '0'; s.edgeC.style.opacity = '0';
+    });
+    auxL.style.width = '0px'; auxL.style.height = '0px';
+    auxR.style.width = '0px'; auxR.style.height = '0px';
+    auxL.style.transform = 'none'; auxR.style.transform = 'none';
+    slit.style.width = '0px'; slit.style.height = '0px';
+    slit.style.opacity = '0';
+    slitPad.style.opacity = '0';
+    slit.style.boxShadow = '';
+    slitIn.style.width = '0px'; slitIn.style.height = '0px';
+    caption.style.opacity = '0';
+    brand.style.opacity = '0';
+    brand.style.transform = 'translateY(8px)';
+    brand.style.letterSpacing = '';
+    skipBtn.style.opacity = '0';
+    world.style.transform = 'translate3d(0,0,0) scale(1.07)';
+  }
+
+  function frame(now) {
+    var t = (now - t0) / 1000 * SPEED;   /* 全局速度入口：缩放后 t 与各相位常量同域 */
+    var vw = window.innerWidth, vh = window.innerHeight;
+    var maxR = Math.hypot(vw, vh) / 2 + 60;
+    if (!IW) { IW = sceneImg.naturalWidth || 0; IH = sceneImg.naturalHeight || 0; }
+
+    /* 主轨道全宽 = 视口宽度 / 36 */
+    var HALF = vw / 72;
+
+    /* --- 背景漂移（全程，所有背景图层随 #world 同步移动保持对齐） --- */
+    drift(t);
+
+    /* --- 主轨道：底部劈开(0.30-0.38) → 快速展宽(0.38-0.50) → 满粗上伸(0.50-1.20，0.7s 与先前同速) → 驻留 --- */
+    var half = 0, sh = 0, slitOp = 0;
+    if (t >= 0.30) {
+      slitOp = 1;
+      if (t < 0.38) {                                   /* 劈开：底部亮缝 + 短桩 */
+        half = 1.5 * outQuad((t - 0.30) / 0.08);
+        sh = vh * 0.06 * outQuad((t - 0.30) / 0.08);
+      } else if (t < 0.50) {                            /* 展宽：至满粗 vw/36，桩缓升 */
+        var wp = outCubic((t - 0.38) / 0.12);
+        half = lerp(1.5, HALF, wp);
+        sh = vh * lerp(0.06, 0.18, outQuad(wp));
+      } else {                                          /* 满粗上伸：0.7s（先前速度），全程 vw/36 */
+        half = HALF;
+        sh = vh * lerp(0.18, 1, outCubic(clamp01((t - 0.50) / 0.70)));
+      }
+    }
+    slit.style.width = (half * 2).toFixed(2) + 'px';
+    slit.style.height = sh.toFixed(1) + 'px';
+    slit.style.opacity = slitOp.toFixed(3);
+    /* 内层四周外扩 12px 再模糊：内容模糊而外框边界保持锐利 */
+    if (half > 0) {
+      var pad = 12;
+      slitIn.style.left = -pad + 'px';
+      slitIn.style.top = -pad + 'px';
+      slitIn.style.width = (half * 2 + pad * 2).toFixed(1) + 'px';
+      slitIn.style.height = (sh + pad * 2).toFixed(1) + 'px';
+      bgCover(slitIn, vw / 2 - half - pad, vh - sh - pad, half * 2 + pad * 2, sh + pad * 2);
+    }
+    /* 主轨边界无色透明：全程无描边/阴影，升满即与周边内容自然衔接（瞬时无痕）；
+       内容恒定灰白模糊（与辅轨一致），最终由光圈内核超屏覆盖实现全屏清晰 */
+    slit.style.boxShadow = 'none';
+
+    /* --- 光圈三环（水波涟漪 v26 错峰版）：1.26s 自主轨中心晕开，三环依次错峰启动 ---
+       单一半径曲线 r = R·inOutQuad((t-1.26)/1.69) 不变（起止速度均为 0，全片速度连续）；
+       三环全部由主曲线派生 + 错峰淡入：最外圈 1.26s 起常显；次外圈 rm=r(1-0.13·ms)，
+       ms=ss((t-1.56)/0.35)——半径随 r 同步生长但 1.56s 才淡入（出生贴外圈内缘、随 ms 单调
+       拉开，外-次间距 0.13·ms·r 全程单调增）；内圈 rc=r(1-kk)，kk=0.50-0.42·ss((t-1.74)/1.21)
+       ——外-内间距先增后减（峰值≈0.21r@2.30s）且恒正不交叉；kk 于 ≈2.69s 穿过 0.13：
+       内圈反超次外圈一次（亮带经 min(rc,rm) 连续切换），终态三环 1:0.87:0.92；
+       错峰淡入 oI/oM/oC = 1.26/1.56/1.86（间隔 0.30 相位 = 0.24s 实钟，落在 0.2-0.4s 区间）；
+       越界部分仍被裁剪容器裁掉，2.56s 辅轨满屏后依次扫出全屏（2.95s 收满出屏） */
+    function irisRCurve(tt) {
+      if (tt < 1.26) return 0;
+      var uu = clamp01((tt - 1.26) / 1.69);
+      var ee = uu < 0.5 ? 2 * uu * uu : 1 - 2 * (1 - uu) * (1 - uu);   /* inOutQuad：起止速度均为 0 */
+      return maxR * 1.08 * ee;   /* R = maxR×1.08：2.95s 收满时半径超出对角线+余量，全出屏 */
+    }
+    var r = 0, rm = 0, rc = 0, sh = 0;
+    if (t >= 1.26) {
+      r  = irisRCurve(t);                    /* 最外圈：单一涟漪曲线（慢起步→加速→缓收） */
+      var ms = clamp01((t - 1.56) / 0.35); ms = ms * ms * (3 - 2 * ms);
+      rm = r * (1 - 0.13 * ms);              /* 次外圈：出生贴外圈内缘，0.35s 张开至 0.87r；外-次间距全程单调增 */
+      var ks = clamp01((t - 1.74) / 1.21); ks = ks * ks * (3 - 2 * ks);
+      var kk = 0.50 - 0.42 * ks;             /* 内圈落后比 0.50→0.08：深居内缓追，≈2.69s 反超次外圈，终距最外 0.08r */
+      rc = r * (1 - kk);                     /* 内圈：清晰小点随 rc 从 0 长出（1.86s 起显示），反超后转亮带 */
+      sh = clamp01((rm - rc) / 26);          /* 阴影：随 r·(k-0.13) 先涨后消（峰值≈0.73），重合即彻底消失 */
+    }
+    if (r > 0) {
+      var oI = clamp01((t - 1.26) / 0.10), oM = clamp01((t - 1.56) / 0.12), oC = clamp01((t - 1.86) / 0.12);   /* 错峰淡入：外 1.26 → 次 1.56 → 内 1.86（间隔 0.30 相位 = 0.24s 实钟） */
+      irisSets.forEach(function (s) {
+        s.iris.style.opacity = oI.toFixed(3);
+        s.mid.style.opacity = oM.toFixed(3);
+        s.mid.style.filter = 'blur(3.5px) brightness(' + (1 - 0.14 * sh).toFixed(3) + ')';   /* 淡阴影：随重合渐隐 */
+        s.coreBright.style.opacity = oC.toFixed(3);
+        s.core.style.opacity = oC.toFixed(3);
+        s.edgeI.style.opacity = oI.toFixed(3);
+        s.edgeM.style.opacity = oM.toFixed(3);
+        s.edgeC.style.opacity = oC.toFixed(3);
+        s.edgeI.style.width = (r * 2).toFixed(1) + 'px'; s.edgeI.style.height = (r * 2).toFixed(1) + 'px';
+        s.edgeM.style.width = (rm * 2).toFixed(1) + 'px'; s.edgeM.style.height = (rm * 2).toFixed(1) + 'px';
+        s.edgeC.style.width = (rc * 2).toFixed(1) + 'px'; s.edgeC.style.height = (rc * 2).toFixed(1) + 'px';
+        s.iris.style.width = (r * 2).toFixed(1) + 'px';
+        s.iris.style.height = (r * 2).toFixed(1) + 'px';
+        bgCover(s.iris, vw / 2 - r, vh / 2 - r, r * 2, r * 2);
+        s.mid.style.width = (rm * 2).toFixed(1) + 'px';
+        s.mid.style.height = (rm * 2).toFixed(1) + 'px';
+        bgCover(s.mid, vw / 2 - rm, vh / 2 - rm, rm * 2, rm * 2);
+        s.coreBright.style.width = (rc * 2).toFixed(1) + 'px';
+        s.coreBright.style.height = (rc * 2).toFixed(1) + 'px';
+        bgCover(s.coreBright, vw / 2 - rc, vh / 2 - rc, rc * 2, rc * 2);
+        var rcIn = Math.min(rc, rm);   /* 内圈核心：未追平时=内圈（盖住亮带），追平后=次外圈（亮带显形） */
+        s.core.style.width = (rcIn * 2).toFixed(1) + 'px';
+        s.core.style.height = (rcIn * 2).toFixed(1) + 'px';
+        bgCover(s.core, vw / 2 - rcIn, vh / 2 - rcIn, rcIn * 2, rcIn * 2);
+      });
+    }
+
+    /* --- 辅轨道：主轨为根基、主轨中心(vh/2)为分界线，单一 easeOutQuad 时间轴三相位连续丝滑 ---
+       相位A（起步）：左块贴上半截(top=0)向左展一点、右块贴下半截(bottom=vh)向右展一点
+       相位B（对角生长）：左块底边下扫＋左缘左移（朝长方形左下角）、右块顶边上扫＋右缘右移（朝右上角），
+                         u≈0.54（e=0.5592）时恰好合成 4/7 屏宽 × 全高的标准长方形
+       相位C（铺满）：长方形两侧沿同一曲线继续向左右延伸，2.56s 铺满全屏
+       全程宽度/高度单调增、速度连续 → 衔接处零可见停顿；光圈晕开 2.95s 收（慢于辅轨） */
+    if (t >= 1.26) {
+      var u = clamp01((t - 1.26) / 1.30);              /* 1.26→2.56s */
+      /* 水平全程 = 单一 easeOutQuad：e'=2(1-u) 严格连续单调，起步快（先展「一点」）
+         且全程减速，无快起分量截止断崖 → 零停顿；u=0.336（t≈1.70）长方形落定 */
+      var e = 1 - (1 - u) * (1 - u);
+      var pr = Math.min(1, e / 0.5592);                 /* 垂直进度：e=0.5592 时长方形落定即全高 */
+      var pad2 = 14;                                    /* 内层外扩 ≥ blur 半径，保证锐边不露馅 */
+
+      /* 左块：top=0 恒定；左缘 xl0 → 0（铺满），底边 vh/2 → vh（u_rect 完成） */
+      var xl0 = vw / 2 - HALF;
+      var xl = xl0 * (1 - e);
+      var ylb = vh / 2 + (vh / 2) * pr;
+      var OV = 2;   /* 向主轨内重叠 2px：压住 slit 裁剪边，垫层裁剪边下层保证为辅轨灰白 */
+      auxL.style.left = xl.toFixed(1) + 'px';
+      auxL.style.top = '0px';
+      auxL.style.width = (xl0 - xl + OV).toFixed(1) + 'px';
+      auxL.style.height = ylb.toFixed(1) + 'px';
+      if (xl0 - xl > 0.5) {
+        auxLIn.style.left = -pad2 + 'px';
+        auxLIn.style.top = -pad2 + 'px';
+        auxLIn.style.width = (xl0 - xl + OV + pad2 * 2).toFixed(1) + 'px';
+        auxLIn.style.height = (ylb + pad2 * 2).toFixed(1) + 'px';
+        bgCover(auxLIn, xl - pad2, -pad2, xl0 - xl + OV + pad2 * 2, ylb + pad2 * 2);
+      }
+
+      /* 右块：bottom=vh 恒定；右缘 xr0 → vw（铺满），顶边 vh/2 → 0（u_rect 完成） */
+      var xr0 = vw / 2 + HALF;
+      var xr = xr0 + (vw - xr0) * e;
+      var yrt = (vh / 2) * (1 - pr);
+      auxR.style.left = (xr0 - OV).toFixed(1) + 'px';
+      auxR.style.top = yrt.toFixed(1) + 'px';
+      auxR.style.width = (xr - xr0 + OV).toFixed(1) + 'px';
+      auxR.style.height = (vh - yrt).toFixed(1) + 'px';
+      if (xr - xr0 > 0.5) {
+        auxRIn.style.left = -pad2 + 'px';
+        auxRIn.style.top = -pad2 + 'px';
+        auxRIn.style.width = (xr - xr0 + OV + pad2 * 2).toFixed(1) + 'px';
+        auxRIn.style.height = (vh - yrt + pad2 * 2).toFixed(1) + 'px';
+        bgCover(auxRIn, xr0 - OV - pad2, yrt - pad2, xr - xr0 + OV + pad2 * 2, vh - yrt + pad2 * 2);
+      }
+
+      /* 光圈裁剪容器对位两辅轨矩形：光圈只能在辅轨已展开区域内晕开，
+         越界部分被裁掉；主轨竖带由 slit(最上层)遮盖 —— 均属预期 */
+      irisClipL.style.left = xl.toFixed(1) + 'px';
+      irisClipL.style.top = '0px';
+      irisClipL.style.width = (xl0 - xl).toFixed(1) + 'px';
+      irisClipL.style.height = ylb.toFixed(1) + 'px';
+      irisWorldL.style.left = (-xl).toFixed(1) + 'px';
+      irisWorldL.style.top = '0px';
+      irisClipR.style.left = xr0.toFixed(1) + 'px';
+      irisClipR.style.top = yrt.toFixed(1) + 'px';
+      irisClipR.style.width = (xr - xr0).toFixed(1) + 'px';
+      irisClipR.style.height = (vh - yrt).toFixed(1) + 'px';
+      irisWorldR.style.left = (-xr0).toFixed(1) + 'px';
+      irisWorldR.style.top = (-yrt).toFixed(1) + 'px';
+
+      /* 主轨竖带容器（恒定矩形）：光圈中带部分不被 slit 遮挡 → 光圈完整 */
+      irisClipS.style.left = (vw / 2 - HALF).toFixed(1) + 'px';
+      irisClipS.style.top = '0px';
+      irisClipS.style.width = (HALF * 2).toFixed(1) + 'px';
+      irisClipS.style.height = vh.toFixed(1) + 'px';
+      irisWorldS.style.left = (-(vw / 2 - HALF)).toFixed(1) + 'px';
+      irisWorldS.style.top = '0px';
+
+      /* 主轨竖带灰白垫层：1.26s 起快速接管 slit（两层内容同源同映射同漂移、逐像素一致，
+         0.03s 交叉无闪变）；slit 即刻退场，其裁剪边混黑暗线随之消失；垫层裁剪边下层为辅轨灰白 → 永无暗线 */
+      var sw = clamp01((t - 1.26) / 0.03);
+      slitPad.style.opacity = sw.toFixed(3);
+      slit.style.opacity = (1 - sw).toFixed(3);
+      var padp = 12;
+      slitPad.style.left = (vw / 2 - HALF - padp) + 'px';   /* irisWorldS 原点=视口原点，用视口坐标 */
+      slitPad.style.top = -padp + 'px';
+      slitPad.style.width = (HALF * 2 + padp * 2).toFixed(1) + 'px';
+      slitPad.style.height = (vh + padp * 2).toFixed(1) + 'px';
+      bgCover(slitPad, vw / 2 - HALF - padp, -padp, HALF * 2 + padp * 2, vh + padp * 2);
+    }
+
+    /* --- 圆环放大（剪映·速度10/模糊10/氛围10，光晕环随光圈最外缘扩散） --- */
+    if (t > 1.26 && t < 3.1) {
+      var ro = clamp01((t - 1.26) / 0.25) * (1 - clamp01((t - 2.6) / 0.5));
+      var rd = r * 2 * 1.1;
+      irisSets.forEach(function (s) {
+        s.ring.style.opacity = (ro * 0.5).toFixed(3);
+        s.ring.style.width = rd + 'px'; s.ring.style.height = rd + 'px';
+      });
+    } else if (t >= 3.1) irisSets.forEach(function (s) { s.ring.style.opacity = '0'; });
+
+    /* --- 底部小字 --- */
+    if (t > 0.1 && t < 0.95) {
+      caption.style.opacity = (clamp01((t - 0.1) / 0.25) * (1 - clamp01((t - 0.6) / 0.35)) * 0.85).toFixed(3);
+    }
+
+    /* --- 品牌定格 --- */
+    if (t > 2.65) {
+      var bp = clamp01((t - 2.65) / 0.8);
+      brand.style.opacity = bp.toFixed(3);
+      brand.style.transform = 'translateY(' + lerp(8, 0, outCubic(bp)) + 'px)';
+      brand.style.letterSpacing = lerp(6, 0, bp).toFixed(2) + 'px';
+    }
+
+    /* --- 跳过按钮 --- */
+    if (t > 0.8 && t < 3.75) skipBtn.style.opacity = '0.9';
+
+
+    /* --- 收尾淡出 --- */
+    if (t >= 3.85 && !splash.classList.contains('vanish')) splash.classList.add('vanish');
+    if (t >= 4.75) { finish(); return; }   /* 缩放后=3.80s：vanish(3.08)+淡出0.65s 完成后再收尾 */
+    raf = requestAnimationFrame(frame);
+  }
+
+  function finish() {
+    if (raf) cancelAnimationFrame(raf);
+    raf = null; finished = true;
+    splash.classList.add('done');
+    skipBtn.style.opacity = '0';
+    document.body.style.overflow = '';
+  }
+
+  function play() {
+    if (raf) cancelAnimationFrame(raf);
+    reset();
+    finished = false;
+    t0 = performance.now();
+    raf = requestAnimationFrame(frame);
+  }
+
+  function skip() { if (!finished) finish(); }
+
+  /* 调试钩子：冻结在指定时刻渲染单帧（仅验证用） */
+  window.__splashSeek = function (t) {
+    if (raf) { cancelAnimationFrame(raf); raf = null; }
+    reset();
+    finished = true;
+    t0 = performance.now() - (t / SPEED) * 1000;   /* seek 参数=时间轴秒（相位常量同域），不随 SPEED 改变 */
+    frame(performance.now());
+    if (raf) { cancelAnimationFrame(raf); raf = null; }
+  };
+
+  skipBtn.addEventListener('click', function (e) { e.stopPropagation(); skip(); });
+  splash.addEventListener('click', skip);
+  document.getElementById('replayBtn').addEventListener('click', function () { play(); });
+
+  /* 首次进入：自动播放 */
+  var reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (!reduced) play(); else finish();
+})();
+</script>
+</body>
+</html>
