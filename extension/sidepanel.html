@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>搜绎</title>
+  <link rel="stylesheet" href="sidepanel.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">S</span>
+      <div>
+        <div class="brand-name">搜绎</div>
+        <div class="brand-tag">把含糊的问题理成能搜的话</div>
+      </div>
+    </div>
+    <button id="settings-btn" class="icon-btn" title="设置">⚙</button>
+  </header>
+
+  <main>
+    <!-- 输入区 -->
+    <section id="input-panel" class="panel">
+      <h2 class="panel-title">1 · 输入问题</h2>
+      <textarea id="question" placeholder="例：考研人数如何？深度学习怎么入门？2024 上海房价走势？" rows="3"></textarea>
+      <div class="input-actions">
+        <button id="grab-btn" class="btn ghost" hidden>📋 用选中文本</button>
+        <button id="generate-btn" class="btn primary">生成检索方案 →</button>
+      </div>
+      <p class="hint">提示：在任何网页选中文字 → 右键「用搜绎生成检索方案」</p>
+    </section>
+
+    <!-- 盘问卡片 -->
+    <section id="clarify-panel" class="panel hidden">
+      <h2 class="panel-title">2 · 多角度追问 <span class="hint-inline">可多选 · 同组互斥</span></h2>
+      <div id="clarify-list"></div>
+      <div class="input-actions">
+        <button id="refine-btn" class="btn primary">据此生成方案 →</button>
+      </div>
+    </section>
+
+    <!-- 检索方案 -->
+    <section id="plan-panel" class="panel hidden">
+      <h2 class="panel-title">3 · 检索方案 <span class="hint-inline">复制后去搜索引擎粘贴</span></h2>
+      <div class="terms-view" id="terms-view"></div>
+      <div id="matrix-groups"></div>
+
+      <div class="export-actions">
+        <button id="copy-all-btn" class="btn ghost">复制全部检索式</button>
+        <button id="copy-json-btn" class="btn ghost">复制 JSON</button>
+        <button id="reset-btn" class="btn ghost">重新开始</button>
+      </div>
+
+      <details class="engine-tips">
+        <summary>📌 在哪里粘贴这些检索式？</summary>
+        <ul>
+          <li><b>Bing</b>（国际版）— <a href="https://www.bing.com" target="_blank">bing.com</a></li>
+          <li><b>百度</b> — <a href="https://www.baidu.com" target="_blank">baidu.com</a></li>
+          <li><b>微信搜一搜</b> — <a href="https://weixin.sogou.com" target="_blank">weixin.sogou.com</a></li>
+          <li><b>学术（OpenAlex）</b> — <a href="https://openalex.org" target="_blank">openalex.org</a></li>
+          <li><b>GitHub 代码</b> — <a href="https://github.com/search" target="_blank">github.com/search</a></li>
+        </ul>
+      </details>
+    </section>
+  </main>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <script type="module" src="sidepanel.js"></script>
+</body>
+</html>
