@@ -1,91 +1,107 @@
-# AI-
+# 搜绎 (Souyi)
 
-个人 AI 资产库。存放自制与自维护的 Agent Skill（技能包），以及个人 AI 相关的工具入口。
+> 把含糊的问题，理成能搜的话。
 
-## 目录结构
+搜绎是一个本地优先的「智能检索助手」：用户在搜索框里输入含糊的问题（如「考研人数」「如何做决策」），搜绎会先通过多角度追问卡片帮用户把问题细化，然后并行调用多个搜索引擎（Bing / 百度 / 微信公众号 / 头条 / OpenAlex / GitHub 等）抓取候选页面，再用多维度判定过滤出**真正相关的**内容（≥80% 句子命中核心词）。
 
-```
-AI-/
-├── skills/       # Agent Skill 技能包（每个技能自带 README.md）
-├── AI 入口启动器.lnk      # 原有：AI 入口快捷方式
-└── 个人学习助手.lnk        # 原有：个人学习助手快捷方式
-```
+## 功能特性
 
-## 什么是 Agent Skill
+- **多 Provider 并发检索**：Bing + 百度 + 微信 + 头条 + OpenAlex + GitHub 等 11 个数据源
+- **多角度追问盘问卡片**：5 维度（核心指向 / 时间窗 / 立场 / 用途 / 范围），含多选 + 互斥分组
+- **3 档内容相关度过滤**：严格 80% / 平衡 60% / 宽松 30%
+- **多维度相关度判定**：句子命中率 + 标题含核心词 + 前 3 段含核心词 + 正文长度
+- **用户点击量排序**：grade 分桶 + 同档按点击量降序
+- **边缘相关警告标签**：放宽阈值后保留的内容打 `⚠️ 边缘相关` 标签
+- **搜索历史 + Markdown 导出**：SQLite 存储历史记录，可导出 Markdown 笔记
 
-一个技能包就是一个文件夹，核心是 `SKILL.md`（含 YAML frontmatter + 指令正文）：
+## 技术栈
 
-- **`name`**——技能标识，调用时使用
-- **`description`**——触发条件描述，决定何时被自动匹配
-- 正文——这个技能被触发后的完整执行指令
+- **后端**：Python 3.13 / FastAPI / uvicorn / httpx / BeautifulSoup4
+- **前端**：原生 JavaScript（无框架）
+- **存储**：SQLite（搜索历史）+ 文件（数据缓存）
+- **解析**：lxml（HTML 解析）
 
-把技能文件夹放进支持 skill 的 AI 工具的 skills 目录即可使用。
-
-## 技能清单
-
-### 设计与视觉
-
-| 技能 | 简介 |
-| --- | --- |
-| [splash-anim-template](skills/splash-anim-template/) | 网页开屏动效模板（刀刃劈开→三环光圈晕开转清晰，v26 三环错峰） |
-| [ui-award-design](skills/ui-award-design/) | 获赞级 UI 设计与动效，含性能预算与中文字体策略 |
-
-### 工程实践
-
-| 技能 | 简介 |
-| --- | --- |
-| [tdd](skills/tdd/) | 测试驱动开发：好测试的标准、测试接缝、反模式、循环规则 |
-| [improve-codebase-architecture](skills/improve-codebase-architecture/) | 扫描架构深化机会，HTML 报告呈现 + 拷问式收敛 |
-| [caveman](skills/caveman/) | 极简压缩通信模式，省 75% token |
-
-### 提示词与协作
-
-| 技能 | 简介 |
-| --- | --- |
-| [prompt-optimizer](skills/prompt-optimizer/) | agent prompt / system prompt 的契约化创建与优化（六步流程） |
-| [conversation-handoff](skills/conversation-handoff/) | 多轮对话目标判断、漂移检测与上下文交接中枢 |
-| [skill-router](skills/skill-router/) | 技能调用器：动手前先为任务找到正确的技能 |
-
-### 内容与自动化
-
-| 技能 | 简介 |
-| --- | --- |
-| [video-bilibili-shorts](skills/video-bilibili-shorts/) | B 站短视频流水线：中英双语字幕 + 无配音成片 + 配音文案 |
-| [web-avatar-subagent](skills/web-avatar-subagent/) | 网页端任务替身：重型子任务委派独立子代理 |
-
-### 任务型技能（skillopt 系列）
-
-为特定基准／任务形态定义的严格作答纪律，一任务一技能：
-
-| 技能 | 任务类型 |
-| --- | --- |
-| [skillopt-alfworld](skills/skillopt-alfworld/) | 文本具身环境任务（ALFWorld） |
-| [skillopt-docvqa](skills/skillopt-docvqa/) | 文档视觉问答（DocVQA） |
-| [skillopt-livemath](skills/skillopt-livemath/) | 数学选择题精确作答 |
-| [skillopt-officeqa](skills/skillopt-officeqa/) | 官方文档问答与计算 |
-| [skillopt-searchqa](skills/skillopt-searchqa/) | 搜索／知识竞赛精确问答 |
-| [skillopt-spreadsheetbench](skills/skillopt-spreadsheetbench/) | Excel/xlsx 结构化操作 |
-
-## 安装使用
-
-将需要的技能文件夹复制到目标 AI 工具的用户级 skills 目录：
+## 本地运行
 
 ```bash
-# 克隆本仓库
-git clone https://github.com/Wjh202694/AI-.git
+# 安装依赖
+pip install -r requirements.txt
 
-# 复制某个技能（以 splash-anim-template 为例）
-cp -r AI-/skills/splash-anim-template ~/.workbuddy/skills/
+# 启动服务（默认 http://127.0.0.1:8321/）
+python main.py
+
+# 或 Windows 用户双击 run.bat
 ```
 
-各技能的具体用法见其目录内的 `README.md`。
+## 云端部署（Railway）
 
-## 约定
+1. 推送代码到 GitHub
+2. Railway 上 `New Project` → `Deploy from GitHub repo` → 选本仓库
+3. 配置环境变量（可选）：
+   - `SOUYI_HOST=0.0.0.0`（云端必填，自动）
+   - `SOUYI_GITHUB_TOKEN`（可选，提升 GitHub Search API 速率）
+4. Railway 自动检测 Python 项目并部署
+5. 部署完成后 Railway 会分配一个公网 URL（如 `xxx.up.railway.app`）
 
-- 技能正文一律中文，技术标识符保留英文原样
-- 涉及本机路径的脚本统一读 `WORKSPACE` 环境变量，不写死绝对路径
-- 第三方来源的技能不在本仓库收录（避免版权与来源混淆）
+## 项目结构
 
-## 说明
+```
+search-agent/
+├── main.py                # 入口
+├── requirements.txt
+├── railway.json           # Railway 部署配置
+├── run.bat / stop.bat     # Windows 本地启动脚本
+├── backend/               # FastAPI 后端
+│   ├── app.py             # API 路由
+│   ├── config.py          # 全局配置（含 3 档阈值）
+│   ├── aggregator.py      # 多 provider 并发 + 过滤 + 排序
+│   ├── fetch.py           # 抓取正文 + 多维度内容相关度判定
+│   ├── clarifier.py       # 盘问卡片生成
+│   ├── query_planner.py   # 查询矩阵生成
+│   ├── grader.py          # 一手 / 二手分级
+│   ├── history.py         # SQLite 历史记录
+│   ├── clicks.py          # 用户点击量埋点
+│   ├── models.py          # Pydantic 数据模型
+│   └── providers/         # 11 个搜索 Provider
+└── frontend/              # 原生 JS 前端
+    ├── index.html
+    ├── app.js
+    └── style.css
+```
 
-仓库中除 `skills/` 外，其余文件为个人本地快捷方式。
+## 配置说明
+
+### 端口候选（`backend/config.py`）
+
+```python
+PORT_CANDIDATES = [8321, 8322, 8323]
+```
+
+### 内容相关度档位（3 档）
+
+| 档位 | 阈值 | 默认 |
+|---|---|---|
+| `strict` | 80% | |
+| `balanced` | 60% | |
+| `loose` | 30% | ✓ 默认 |
+
+### 搜索引擎覆盖
+
+| Provider | 状态 |
+|---|---|
+| Bing | ✓ |
+| 百度 | ✓ |
+| 微信搜一搜 | ✓ |
+| 头条搜索 | ✓ |
+| OpenAlex 学术 | ✓ |
+| GitHub 代码 | ✓ |
+| 搜狗 / 360 / 神马 / 中国搜索 / Brave / Mojeek / DuckDuckGo | 保留代码备用 |
+
+## 免责声明
+
+本项目仅供个人学习与研究使用。请勿用于：
+- 大规模商业爬虫
+- 绕过网站服务条款
+- 侵犯第三方权益
+
+使用本项目产生的法律责任由使用者自行承担。
