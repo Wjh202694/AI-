@@ -115,20 +115,20 @@ export function applyAnswersToTerms(baseTerms, answers) {
   return terms.filter((x) => !seen.has(x) && seen.add(x)).slice(0, 10);
 }
 
-// 6 个思考角度的衍生模板
-// 每条都从同一原始问题出发，生成一个不同维度的「子问题」
+// 6 个思考角度的衍生模板（每条都是完整自然问句，不是关键词堆叠）
+// base 参数是用户的原问题，模板把它自然地嵌入问句中
 const ANGLES = [
   {
     key: "audience",
     label: "👥 人群维度",
-    suffix: " 不同人群 青少年 成人 老人",
+    template: (base) => `不同人群（青少年、成年人、老年人、不同职业）的「${base}」有什么差异？`,
     note: "按人群拆解：青少年 / 成人 / 老人 / 职业群体",
     defaultChecked: false,
   },
   {
     key: "region",
     label: "🌍 地域维度",
-    suffix: " 中国 美国 欧洲 日本 对比",
+    template: (base, others) => `不同地区（中国、美国、欧洲、日本 等）的「${base}」对比与差异是什么？`,
     note: "按地域拆解：中国 / 海外 / 特定地区 的差异",
     defaultChecked: false,
     detectConflict: "country",
@@ -136,28 +136,28 @@ const ANGLES = [
   {
     key: "time",
     label: "⏱ 时间维度",
-    suffix: " 短期 长期 趋势 历史",
+    template: (base) => `短期与长期的「${base}」有什么不同？近年来的变化趋势是什么？`,
     note: "按时间拆解：短期 vs 长期 / 历史趋势 / 最新",
     defaultChecked: false,
   },
   {
     key: "compare",
     label: "⚖ 对比维度",
-    suffix: " vs 对比 区别 差异",
+    template: (base) => `「${base}」与同类相近的事物对比，区别和优劣是什么？`,
     note: "对比相似事物：A vs B / 区别 / 差异",
     defaultChecked: false,
   },
   {
     key: "quantify",
     label: "📊 量化维度",
-    suffix: " 数据 统计 数字 百分比 报告",
+    template: (base) => `「${base}」的具体数据 / 统计 / 数字 / 百分比是多少？有哪些权威报告？`,
     note: "要具体数字：数据 / 统计 / 百分比 / 报告",
     defaultChecked: true,
   },
   {
     key: "mechanism",
     label: "🔬 机制维度",
-    suffix: " 原因 原理 机制 为什么",
+    template: (base) => `为什么「${base}」？背后的原因 / 原理 / 机制是什么？`,
     note: "追问原理：原因 / 原理 / 机制 / 为什么",
     defaultChecked: true,
   },
@@ -172,8 +172,11 @@ const SITE_ROUTES = [
   { topics: ["github", "代码", "开源", "实现"], site: "github.com", name: "GitHub" },
 ];
 
-const COUNTER_WORDS = ["质疑", "反对", "风险", "失败", "争议", "后悔", "骗局", "问题"];
-const COUNTER_PHRASES = ["局限性", "副作用", "反面观点", "负面影响"];
+const COUNTER_TEMPLATES = [
+  (core) => `质疑：${core}这种说法是否被夸大或误导？有什么反例？`,
+  (core) => `${core}的局限性、副作用或负面影响有哪些？`,
+  (core) => `为什么${core}的观点可能是错的？有哪些质疑和反驳？`,
+];
 
 /**
  * 生成多角度检索矩阵
@@ -188,7 +191,8 @@ export function buildQueryMatrix(question, terms, jargon, answers = {}) {
   const items = [];
   const q = (question || "").trim();
   const core = terms.slice(0, 4);
-  const base = core.length ? core.join(" ") : q;
+  // base 用原问题作为模板填字（不是空格拼接的核心词）让语句更自然
+  const base = q;
   const primary = core[0] || q;
   const textAll = (q + " " + terms.join(" ")).toLowerCase();
 
@@ -199,23 +203,24 @@ export function buildQueryMatrix(question, terms, jargon, answers = {}) {
     note: "原问题本身，直接搜",
   });
 
-  // 2. 6 个思考角度（衍生子问题）
-  const COUNTRY_WORDS = ["中国", "美国", "日本", "韩国", "欧洲", "德国", "法国", "英国", "俄罗斯", "印度", "日本", "加拿大", "澳洲", "澳大利亚"];
+  // 2. 6 个思考角度（完整问句模板）
+  const COUNTRY_WORDS = ["中国", "美国", "日本", "韩国", "欧洲", "德国", "法国", "英国", "俄罗斯", "印度", "加拿大", "澳洲", "澳大利亚"];
   const containsCountry = COUNTRY_WORDS.some((c) => textAll.includes(c));
   for (const ang of ANGLES) {
-    let suffix = ang.suffix;
-    let note = ang.note;
-    // 冲突检测：原问题已含国家词时，地域维度不要再硬塞“中国”
+    let query, note;
     if (ang.detectConflict === "country" && containsCountry) {
       const otherCountries = COUNTRY_WORDS.filter((c) => !textAll.includes(c)).slice(0, 4);
-      suffix = " 对比 " + otherCountries.join(" ");
-      note = `按地域拆解：与其他地区（${otherCountries.slice(0, 2).join("、")} 等）对比`;
+      query = ang.template(base, otherCountries);
+      note = `与其他地区（${otherCountries.slice(0, 3).join("、")} 等）对比`;
+    } else {
+      query = ang.template(base);
+      note = ang.note;
     }
     items.push({
       group: ang.label, group_name: ang.label,
-      query: `${base}${suffix}`,
+      query,
       checked: ang.defaultChecked,
-      note: note,
+      note,
     });
   }
 
@@ -258,32 +263,26 @@ export function buildQueryMatrix(question, terms, jargon, answers = {}) {
     });
   }
 
-  // 5. 反面视角（默认 2 条，counter 时加 1 条，support/academic 时去掉）
+  // 5. 反面视角（默认 2 条完整问句，counter 时加 1 条，support/academic 时去掉）
   const stanceVals = Array.isArray(a.stance) ? a.stance : (a.stance ? [a.stance] : []);
   const skipCounter = stanceVals.includes("support") || stanceVals.includes("academic");
   if (!skipCounter) {
-    const counterBase = primary;
-    const textAllWords = textAll.split(/\s+/);
-    const available = COUNTER_WORDS.filter((w) => !textAllWords.includes(w));
-    const w1 = available[0] || COUNTER_WORDS[0];
-    const w2 = available[1] || COUNTER_WORDS[1] || COUNTER_PHRASES[0];
     items.push({
       group: "反面视角", group_name: "⚠ 反面视角",
-      query: `${counterBase} ${w1}`,
+      query: COUNTER_TEMPLATES[0](base),
       checked: false,
-      note: "⚠ 反面视角（仅供参考）— 看完两边才有资格判断",
+      note: "⚠ 反面视角（仅供参考）— 质疑/反例视角",
     });
     items.push({
       group: "反面视角", group_name: "⚠ 反面视角",
-      query: `${counterBase} ${w2} 局限`,
+      query: COUNTER_TEMPLATES[1](base),
       checked: false,
-      note: "⚠ 反面视角（仅供参考）— 质疑/局限性视角",
+      note: "⚠ 反面视角（仅供参考）— 局限/副作用视角",
     });
     if (stanceVals.includes("counter")) {
-      const w3 = available[2] || COUNTER_WORDS[2] || COUNTER_PHRASES[1];
       items.push({
         group: "反面视角", group_name: "⚠ 反面视角",
-        query: `${counterBase} ${w3}`,
+        query: COUNTER_TEMPLATES[2](base),
         checked: true,
         note: "⚠ 反面视角（你明确选了「听反对的」，加一条深度反面）",
       });
