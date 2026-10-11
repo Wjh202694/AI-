@@ -115,103 +115,113 @@ export function applyAnswersToTerms(baseTerms, answers) {
   return terms.filter((x) => !seen.has(x) && seen.add(x)).slice(0, 10);
 }
 
-/**
- * 站点定向路由（按主题匹配）
- */
-const SITE_ROUTES = [
-  { topics: ["政策", "数据", "统计", "经济", "人口", "就业", "收入", "房价"], site: "stats.gov.cn", name: "国家统计局" },
-  { topics: ["公司", "股票", "上市", "财报", "招股", "行业", "企业"], site: "cninfo.com.cn", name: "巨潮资讯网" },
-  { topics: ["政策", "法规", "通知", "规定", "国务院"], site: "gov.cn", name: "中国政府网" },
-  { topics: ["论文", "研究", "学术", "实验"], site: "arxiv.org", name: "论文预印本库" },
-  { topics: ["github", "代码", "开源", "实现"], site: "github.com", name: "GitHub" },
+// 6 个思考角度的衍生模板
+// 每条都从同一原始问题出发，生成一个不同维度的「子问题」
+const ANGLES = [
+  {
+    key: "audience",
+    label: "👥 人群维度",
+    suffix: " 不同人群 青少年 成人 老人",
+    note: "按人群拆解：青少年 / 成人 / 老人 / 职业群体",
+    defaultChecked: false,
+  },
+  {
+    key: "region",
+    label: "🌍 地域维度",
+    suffix: " 中国 美国 欧洲 日本 对比",
+    note: "按地域拆解：中国 / 海外 / 特定地区 的差异",
+    defaultChecked: false,
+  },
+  {
+    key: "time",
+    label: "⏱ 时间维度",
+    suffix: " 短期 长期 趋势 历史",
+    note: "按时间拆解：短期 vs 长期 / 历史趋势 / 最新",
+    defaultChecked: false,
+  },
+  {
+    key: "compare",
+    label: "⚖ 对比维度",
+    suffix: " vs 对比 区别 差异",
+    note: "对比相似事物：A vs B / 区别 / 差异",
+    defaultChecked: false,
+  },
+  {
+    key: "quantify",
+    label: "📊 量化维度",
+    suffix: " 数据 统计 数字 百分比 报告",
+    note: "要具体数字：数据 / 统计 / 百分比 / 报告",
+    defaultChecked: true,
+  },
+  {
+    key: "mechanism",
+    label: "🔬 机制维度",
+    suffix: " 原因 原理 机制 为什么",
+    note: "追问原理：原因 / 原理 / 机制 / 为什么",
+    defaultChecked: true,
+  },
 ];
 
 const COUNTER_WORDS = ["质疑", "反对", "风险", "失败", "争议", "后悔", "骗局", "问题"];
 const COUNTER_PHRASES = ["局限性", "副作用", "反面观点", "负面影响"];
 
 /**
- * 生成五组查询矩阵 A/B/C/D/E
+ * 生成多角度检索矩阵
+ * - 1 条原问题
+ * - 6 个思考维度（人群/地域/时间/对比/量化/机制）
+ * - 1-3 条反例（默认 2 条）
  */
 export function buildQueryMatrix(question, terms, jargon, answers = {}) {
   const a = answers || {};
   const items = [];
   const q = (question || "").trim();
-
-  // A 组：原始问句
-  items.push({ group: "A", group_name: "原始问句", query: q, checked: true, note: "直接搜你的原话，作为对照基线" });
-
-  // 核心词
   const core = terms.slice(0, 4);
-  if (core.length >= 2) {
-    items.push({ group: "B", group_name: "拆词组合", query: core.slice(0, 3).join(" "), checked: true, note: "拆出的核心词 AND 组合，比整句更准" });
-    if (core.length >= 3) {
-      items.push({ group: "B", group_name: "拆词组合", query: core.slice(0, 2).join(" ") + " 最新", checked: false, note: "加时效词，避开过时信息" });
-    }
-  }
-  if (jargon.length) {
-    items.push({ group: "B", group_name: "拆词组合", query: [...core.slice(0, 2), ...jargon.slice(0, 2)].join(" "), checked: true, note: "混入行业黑话：答案所在的地方会这么写" });
+  const base = core.length ? core.join(" ") : q;
+  const primary = core[0] || q;
+
+  // 1. 原问题（必出）
+  items.push({
+    group: "原问题", group_name: "🎯 原问题",
+    query: q, checked: true,
+    note: "原问题本身，直接搜",
+  });
+
+  // 2. 6 个思考角度（衍生子问题）
+  for (const ang of ANGLES) {
+    items.push({
+      group: ang.label, group_name: ang.label,
+      query: `${base}${ang.suffix}`,
+      checked: ang.defaultChecked,
+      note: ang.note,
+    });
   }
 
-  // 时效作答
-  const timeVals = Array.isArray(a.time) ? a.time : (a.time ? [a.time] : []);
-  const tv = timeVals[0];
-  if (tv === "recent") {
-    items.push({ group: "B", group_name: "拆词组合", query: `${core[0]} ${yr} ${yr-1} 最新`, checked: false, note: `锁定近 2 年，过滤过时信息` });
-  } else if (tv === "recent2") {
-    items.push({ group: "B", group_name: "拆词组合", query: `${core[0]} ${yr} ${yr-1} ${yr-2} 趋势`, checked: false, note: `锁定近 3 年，含趋势词` });
-  } else if (tv === "history") {
-    items.push({ group: "B", group_name: "拆词组合", query: `${core[0]} 历史 起源 沿革`, checked: false, note: "拉长时间轴，看来龙去脉" });
-  } else if (tv === "compare") {
-    items.push({ group: "B", group_name: "拆词组合", query: `${core[0]} 对比 变化 趋势`, checked: false, note: "以「新旧对比」视角检索" });
-  }
-
-  // C 组：高级指令
-  const base = core.slice(0, 2).join(" ") || q;
-  items.push({ group: "C", group_name: "高级指令", query: `${base} filetype:pdf`, checked: true, note: "限定 PDF：白皮书、报告、论文，信息密度高" });
-  if (core[0]) {
-    items.push({ group: "C", group_name: "高级指令", query: `"${core[0]}" ${base}`, checked: false, note: "精确短语匹配，锁定关键概念" });
-  }
-
-  // D 组：站点定向
-  const textAll = (q + " " + terms.join(" ")).toLowerCase();
-  let matchedRoutes = 0;
-  for (const route of SITE_ROUTES) {
-    if (route.topics.some((t) => textAll.includes(t))) {
-      items.push({ group: "D", group_name: "站点定向", query: `${base} site:${route.site}`, checked: false, note: `直达一手来源：${route.name}` });
-      matchedRoutes++;
-    }
-  }
-  const depthVals = Array.isArray(a.depth) ? a.depth : (a.depth ? [a.depth] : []);
+  // 3. 反例（默认 2 条，support/academic 时去掉）
   const stanceVals = Array.isArray(a.stance) ? a.stance : (a.stance ? [a.stance] : []);
-  if (matchedRoutes === 0 || depthVals.includes("decision") || stanceVals.includes("support")) {
-    items.push({ group: "D", group_name: "站点定向", query: `${base} site:gov.cn`, checked: false, note: "直达一手来源：政府网站（官方口径）" });
-  }
-
-  // E 组：反面搜索
-  // 默认生成 2 条反例（unchecked，用户勾选才复制）
-  // 选择 support / academic 时不附反例
-  // 选择 counter 时额外加 1 条深度反例（默认勾选）
   const skipCounter = stanceVals.includes("support") || stanceVals.includes("academic");
   if (!skipCounter) {
-    const counterBase = core[0] || q;
-    const textAllWords = textAll.split(/\s+/);
-    const available = COUNTER_WORDS.filter((w) => !textAllWords.includes(w));
-    const primary = available[0] || COUNTER_WORDS[0];
-    const secondary = available[1] || COUNTER_WORDS[1] || COUNTER_PHRASES[0];
+    const counterBase = primary;
+    const textAll = (q + " " + terms.join(" ")).toLowerCase().split(/\s+/);
+    const available = COUNTER_WORDS.filter((w) => !textAll.includes(w));
+    const w1 = available[0] || COUNTER_WORDS[0];
+    const w2 = available[1] || COUNTER_WORDS[1] || COUNTER_PHRASES[0];
     items.push({
-      group: "E", group_name: "⚠ 反面视角", query: `${counterBase} ${primary}`,
+      group: "反面视角", group_name: "⚠ 反面视角",
+      query: `${counterBase} ${w1}`,
       checked: false,
       note: "⚠ 反面视角（仅供参考）— 看完两边才有资格判断",
     });
     items.push({
-      group: "E", group_name: "⚠ 反面视角", query: `${counterBase} ${secondary} 局限`,
+      group: "反面视角", group_name: "⚠ 反面视角",
+      query: `${counterBase} ${w2} 局限`,
       checked: false,
       note: "⚠ 反面视角（仅供参考）— 质疑/局限性视角",
     });
     if (stanceVals.includes("counter")) {
-      const tertiary = available[2] || COUNTER_WORDS[2] || COUNTER_PHRASES[1];
+      const w3 = available[2] || COUNTER_WORDS[2] || COUNTER_PHRASES[1];
       items.push({
-        group: "E", group_name: "⚠ 反面视角", query: `${counterBase} ${tertiary}`,
+        group: "反面视角", group_name: "⚠ 反面视角",
+        query: `${counterBase} ${w3}`,
         checked: true,
         note: "⚠ 反面视角（你明确选了「听反对的」，加一条深度反面）",
       });

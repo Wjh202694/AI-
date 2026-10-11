@@ -48,20 +48,20 @@ export function buildClarify(question, terms = []) {
     free_hint: "其他时间范围（如「未来 5 年」「某年至今」）",
   };
 
-  // ③ 立场
-  const stancePrompt = {
+  // ③ 角度补充
+  const anglePrompt = {
     id: "stance",
-    dimension: "观点平衡",
-    text: "说句不中听的：多数人只搜支持自己判断的信息。这次你想要哪种？",
+    dimension: "角度补充",
+    text: "默认会生成 8 个角度（含正反面）。你想调整反面或额外加强哪个维度？",
     options: [
-      { value: "auto_counter", label: "自动两面（推荐）", hint: "默认 2 条反例，你勾选才复制", group: "stance" },
-      { value: "balance", label: "只要中立", hint: "不额外加强反面", group: "stance" },
-      { value: "counter", label: "加重反面", hint: "增加 1 条深度反例，专治确认偏误", group: "stance" },
-      { value: "support", label: "只要支持依据", hint: "不附反例", group: "stance" },
-      { value: "academic", label: "只要学界观点", hint: "不附反例", group: "stance" },
+      { value: "auto_counter", label: "默认全角度（推荐）", hint: "原问题 + 6 维度 + 2 反例", group: "stance" },
+      { value: "counter", label: "加重反面", hint: "再加 1 条深度反例，专治确认偏误", group: "stance" },
+      { value: "balance", label: "只要中立", hint: "去掉反面视角", group: "stance" },
+      { value: "support", label: "只要支持依据", hint: "去掉反面", group: "stance" },
+      { value: "academic", label: "只要学界观点", hint: "去掉反面", group: "stance" },
     ],
     allow_free: true,
-    free_hint: "其他立场（如「特定利益相关方」）",
+    free_hint: "其他角度补充",
   };
 
   // ④ 用途
@@ -106,5 +106,5 @@ export function buildClarify(question, terms = []) {
     free_hint: "以上都不是，其实我是想问…",
   };
 
-  return [focusPrompt, timePrompt, stancePrompt, depthPrompt, scopePrompt];
+  return [focusPrompt, timePrompt, anglePrompt, depthPrompt, scopePrompt];
 }

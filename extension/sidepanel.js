@@ -144,7 +144,7 @@ function renderMatrix(terms, queries) {
 
   // 为每个检索式生成一张独立卡片（用户可逐条复制）
   queries.forEach((q, idx) => {
-    const isCounter = (q.group === "E") || (q.group_name && q.group_name.includes("反面"));
+    const isCounter = (q.group === "反面视角") || (q.group_name && q.group_name.includes("反面"));
     const card = document.createElement("div");
     card.className = "query-card" + (isCounter ? " counter" : "");
     const isWarn = q.note && q.note.startsWith("⚠");
