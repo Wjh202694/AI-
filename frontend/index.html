@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>搜绎 · 把含糊的问题理成能搜的话</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23f6f0e1'/%3E%3Ctext x='16' y='23' font-size='22' text-anchor='middle' fill='%238a5a2b' font-family='Georgia,serif'%3ES%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark" aria-hidden="true">S</span>
+    <span class="brand-name">搜绎</span>
+    <span class="brand-sep" aria-hidden="true"></span>
+    <span class="brand-tag">文献检索</span>
+    <span class="brand-slogan">把含糊的问题，理成能搜的话</span>
+  </div>
+  <div class="status-lights">
+    <label class="ai-switch" title="开启后调用云端大模型，把问题改写成一条更贴近意图的检索式（需后端配置 LLM 环境变量）">
+      <input type="checkbox" id="ai-toggle">
+      <span class="ai-track"><span class="ai-thumb"></span></span>
+      <span class="ai-label">AI 增强 <span id="ai-state">已关闭</span></span>
+    </label>
+    <button id="history-btn" class="btn ghost">搜索历史</button>
+  </div>
+</header>
+
+<main>
+  <!-- 绎字解线：模糊问题如线团，提交时解开成平行检索式再发射 -->
+  <svg id="yixian" class="yixian" viewBox="0 0 760 70" preserveAspectRatio="none" aria-hidden="true">
+    <g class="yx-tangle" fill="none" stroke="#1c1b19" stroke-width="1.4" stroke-linecap="round" opacity="0.4">
+      <path d="M30 38 C120 8 220 62 300 30 S470 6 560 40 S690 12 730 34"/>
+      <path d="M30 46 C140 66 230 14 320 48 S480 66 580 30 S700 56 730 46"/>
+      <path d="M30 30 C130 50 210 6 310 26 S470 52 570 18 S700 44 730 26"/>
+      <path d="M30 54 C150 36 240 70 330 56 S500 34 600 58 S710 38 730 54"/>
+    </g>
+    <g class="yx-straight" stroke="#1c1b19" stroke-width="1.7" stroke-linecap="round" opacity="0">
+      <line x1="60" y1="20" x2="700" y2="20"/>
+      <line x1="60" y1="32" x2="700" y2="32"/>
+      <line x1="60" y1="44" x2="700" y2="44"/>
+      <line x1="60" y1="56" x2="700" y2="56"/>
+    </g>
+  </svg>
+
+  <!-- 搜索区 -->
+  <section class="search-zone">
+    <div class="search-box">
+      <svg class="ic-search" viewBox="0 0 16 16" aria-hidden="true">
+        <circle cx="7" cy="7" r="5" fill="none" stroke="currentColor" stroke-width="1.4"/>
+        <line x1="10.6" y1="10.6" x2="14" y2="14" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+      </svg>
+      <input id="question" type="text" placeholder="输入你的问题，例如：某上市公司近三年研发投入是多少？"
+             autocomplete="off">
+      <span class="scope" title="范围筛选(预留,本期未启用)">全部</span>
+      <button id="plan-btn" class="btn primary">生成检索方案</button>
+    </div>
+
+    <!-- 常驻轻提示：照常搜但不鼓励日常小任务 -->
+    <div class="hint-bar" id="hint-bar">
+      <span>搜绎适合查<strong>具体任务的资料</strong>；天气、翻译、几点开门这类日常小事，直接用搜索引擎更快。</span>
+      <button id="hint-close" class="hint-close" aria-label="关闭提示">×</button>
+    </div>
+    <p class="hint">别急着搜「怎么办」——先想清楚「这事谁会知道答案」，检索式自然出来。</p>
+    <div class="examples">
+      <span class="ex-label">不知道搜什么？点一个试试（都是具体资料）：</span>
+      <button type="button" class="ex-chip" data-q="某上市公司近三年研发投入是多少">查上市公司研发投入</button>
+      <button type="button" class="ex-chip" data-q="2024年个人所得税专项附加扣除标准">个税专项附加扣除标准</button>
+      <button type="button" class="ex-chip" data-q="民法典关于租房押金的规定">民法典租房押金规定</button>
+      <button type="button" class="ex-chip" data-q="某地最低工资标准在哪查">最低工资标准在哪查</button>
+      <button type="button" class="ex-chip demo" id="ex-demo" type="button">看示例结果（跳过追问）</button>
+    </div>
+  </section>
+
+  <!-- 多角度追问面板（强制盘问，默认展示） -->
+  <section id="clarify-panel" class="clarify-panel hidden">
+    <div class="panel-head">
+      <h2>先盘问几句 <span class="sub">弄清你要的到底是什么，方案才打得准</span></h2>
+    </div>
+    <div id="clarify-list" class="clarify-list"></div>
+    <div class="clarify-actions">
+      <button id="refine-btn" class="btn primary">据此生成检索方案</button>
+    </div>
+  </section>
+
+  <!-- 解释/意图面板：合并用户问句+追问选项后交用户确认，可编辑 -->
+  <section id="interpret-panel" class="interpret-panel hidden">
+    <div class="panel-head">
+      <h2>我对你问题的理解 <span class="sub">这是我准备拿去检索的描述，你看看准不准</span></h2>
+    </div>
+
+    <div class="ip-context" id="ip-context">
+      <div class="ip-row"><span class="ip-label">你的原始问题</span><span class="ip-val" id="ip-orig"></span></div>
+      <div class="ip-row" id="ip-answers-block"><span class="ip-label">你的选择</span><ul class="ip-answers" id="ip-answers"></ul></div>
+    </div>
+
+    <label class="ip-edit-label" for="ip-text">我会搜的问题 <span class="ip-edit-hint">(可修改)</span></label>
+    <textarea id="ip-text" class="ip-text" rows="3" spellcheck="false"
+      placeholder="例：某上市公司近三年研发投入的实际数额与同比趋势（你也可以这里改写）"></textarea>
+    <div class="ip-terms" id="ip-terms"></div>
+
+    <div class="ip-actions">
+      <button id="ip-back" class="btn ghost">返回追问调整</button>
+      <button id="ip-confirm" class="btn primary">确认生成检索方案</button>
+    </div>
+  </section>
+
+  <!-- 查询矩阵面板 -->
+  <section id="matrix-panel" class="matrix-panel hidden">
+    <div class="panel-head">
+      <h2>检索方案 <span id="terms-view" class="terms"></span>
+        <span id="matrix-live-tag" class="live-tag hidden">实时预览中 · 边答边变</span></h2>
+      <button id="search-btn" class="btn primary">执行搜索</button>
+    </div>
+    <div id="matrix-groups" class="matrix-groups"></div>
+    <div class="tier-bar" id="tier-bar">
+      <span class="tier-bar-label">内容相关度档位：</span>
+      <div class="tier-seg" role="radiogroup" aria-label="内容相关度档位">
+        <button type="button" class="tier-opt" data-tier="strict"  role="radio">
+          <span class="tier-name">严格</span><span class="tier-pct">≥ 80%</span>
+        </button>
+        <button type="button" class="tier-opt" data-tier="balanced" role="radio">
+          <span class="tier-name">平衡</span><span class="tier-pct">≥ 60%</span>
+        </button>
+        <button type="button" class="tier-opt" data-tier="loose" role="radio" aria-checked="true">
+          <span class="tier-name">宽松</span><span class="tier-pct">≥ 30%</span>
+        </button>
+      </div>
+      <span class="tier-hint">同一查询、换档会重新过滤；调严会丢弃部分结果</span>
+    </div>
+  </section>
+
+  <!-- 示例 / 最近结果预览：检索方案下方，真跳出结果前让人预览可点链接 -->
+  <section id="results-preview" class="results-preview hidden">
+    <div class="panel-head">
+      <h2>
+        <span class="preview-tag" id="preview-tag">示例</span>
+        <span class="preview-q" id="preview-q"></span>
+      </h2>
+      <a class="btn ghost preview-all" id="preview-all" href="#" hidden>查看全部 <span id="preview-count"></span> →</a>
+    </div>
+    <div id="preview-cards" class="preview-cards"></div>
+  </section>
+
+  <!-- 进度提示 -->
+  <div id="loading" class="loading hidden">
+    <div class="spinner"></div>
+    <p id="loading-text">多路检索中：Bing · 百度 · 微信 · 头条 · OpenAlex · GitHub…<br>同時抓正文验证内容相关度，预计 15–25 秒</p>
+  </div>
+
+  <!-- 检索概览（通道健康 + 分级数量） -->
+  <div id="overview-bar" class="overview-bar hidden"></div>
+
+  <!-- 结果区 -->
+  <section id="results" class="results hidden">
+    <div id="result-sections"></div>
+    <div class="export-bar">
+      <button id="copy-btn" class="btn ghost">复制全部结果</button>
+      <button id="export-btn" class="btn ghost">导出为笔记文件</button>
+    </div>
+  </section>
+</main>
+
+<!-- 历史抽屉 -->
+<aside id="history-drawer" class="drawer hidden">
+  <div class="drawer-head">
+    <h2>搜索历史</h2>
+    <button id="history-close" class="btn ghost">关闭</button>
+  </div>
+  <div id="history-list" class="history-list"></div>
+</aside>
+<div id="drawer-mask" class="drawer-mask hidden"></div>
+
+<div id="toast" class="toast hidden"></div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

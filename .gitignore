@@ -1,0 +1,48 @@
+# ===== 运行环境 =====
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.env
+.venv
+venv/
+
+# ===== 日志与临时文件 =====
+logs/
+*.log
+*.tmp
+server.log
+*.pid
+
+# ===== 数据与缓存 =====
+data/history.db
+data/*.db-journal
+data/*.db-wal
+data/*.db-shm
+__pycache__/
+*.pyc
+.cache/
+
+# ===== 无关项目残留 =====
+ramp-args.json
+ramp-line-args.json
+ramp-images/
+nul
+
+# ===== 编辑器 =====
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ===== 依赖 =====
+node_modules/
+
+# ===== 构建产物 =====
+dist/
+build/
+*.egg-info/
