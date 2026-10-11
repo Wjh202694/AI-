@@ -150,15 +150,18 @@ function renderMatrix(terms, queries) {
   const entries = Object.entries(groups).sort(([a]) => (a === "E" ? 1 : 0));
   for (const [g, info] of entries) {
     const div = document.createElement("div");
-    div.className = "qgroup";
+    div.className = "qgroup" + (g === "E" ? " counter" : "");
     div.innerHTML = `<div class="qgroup-head">${escapeHtml(info.name)}</div>`;
     info.items.forEach((q, i) => {
       const row = document.createElement("div");
       row.className = "qitem";
+      const noteHtml = q.note && q.note.startsWith("⚠")
+        ? `<span class="warn">${escapeHtml(q.note)}</span>`
+        : escapeHtml(q.note || '');
       row.innerHTML = `
         <input type="checkbox" ${q.checked ? "checked" : ""} data-i="${i}">
         <input type="text" class="qtext" value="${escapeHtml(q.query)}" data-i="${i}">
-        <span class="qnote">${escapeHtml(q.note || '')}</span>`;
+        <span class="qnote">${noteHtml}</span>`;
       div.appendChild(row);
     });
     wrap.appendChild(div);

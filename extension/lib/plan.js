@@ -127,6 +127,7 @@ const SITE_ROUTES = [
 ];
 
 const COUNTER_WORDS = ["质疑", "反对", "风险", "失败", "争议", "后悔", "骗局", "问题"];
+const COUNTER_PHRASES = ["局限性", "副作用", "反面观点", "负面影响"];
 
 /**
  * 生成五组查询矩阵 A/B/C/D/E
@@ -186,12 +187,35 @@ export function buildQueryMatrix(question, terms, jargon, answers = {}) {
     items.push({ group: "D", group_name: "站点定向", query: `${base} site:gov.cn`, checked: false, note: "直达一手来源：政府网站（官方口径）" });
   }
 
-  // E 组：反面搜索（仅在用户明确选「counter」时）
-  if (stanceVals.includes("counter")) {
+  // E 组：反面搜索
+  // 默认生成 2 条反例（unchecked，用户勾选才复制）
+  // 选择 support / academic 时不附反例
+  // 选择 counter 时额外加 1 条深度反例（默认勾选）
+  const skipCounter = stanceVals.includes("support") || stanceVals.includes("academic");
+  if (!skipCounter) {
     const counterBase = core[0] || q;
-    const available = COUNTER_WORDS.filter((w) => !textAll.includes(w));
+    const textAllWords = textAll.split(/\s+/);
+    const available = COUNTER_WORDS.filter((w) => !textAllWords.includes(w));
     const primary = available[0] || COUNTER_WORDS[0];
-    items.push({ group: "E", group_name: "反面搜索", query: `${counterBase} ${primary}`, checked: true, note: "你明确选了「听反对的」，补一条反面视角" });
+    const secondary = available[1] || COUNTER_WORDS[1] || COUNTER_PHRASES[0];
+    items.push({
+      group: "E", group_name: "⚠ 反面视角", query: `${counterBase} ${primary}`,
+      checked: false,
+      note: "⚠ 反面视角（仅供参考）— 看完两边才有资格判断",
+    });
+    items.push({
+      group: "E", group_name: "⚠ 反面视角", query: `${counterBase} ${secondary} 局限`,
+      checked: false,
+      note: "⚠ 反面视角（仅供参考）— 质疑/局限性视角",
+    });
+    if (stanceVals.includes("counter")) {
+      const tertiary = available[2] || COUNTER_WORDS[2] || COUNTER_PHRASES[1];
+      items.push({
+        group: "E", group_name: "⚠ 反面视角", query: `${counterBase} ${tertiary}`,
+        checked: true,
+        note: "⚠ 反面视角（你明确选了「听反对的」，加一条深度反面）",
+      });
+    }
   }
 
   return items;

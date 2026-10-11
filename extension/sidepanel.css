@@ -169,6 +169,15 @@ textarea:focus { outline: none; border-color: var(--accent); }
   text-transform: uppercase; letter-spacing: .5px;
   margin-bottom: 8px;
 }
+.qgroup.counter .qgroup-head { color: #c25a1a; }
+.qgroup.counter {
+  background: #fff8ee;
+  border-color: #f0c98c;
+}
+@media (prefers-color-scheme: dark) {
+  .qgroup.counter { background: #3a2a18; border-color: #6b4a28; }
+}
+.qitem .qnote .warn { color: #c25a1a; font-weight: 600; }
 .qitem {
   display: flex; align-items: center; gap: 8px;
   padding: 6px 0; border-top: 1px solid var(--rule);

@@ -51,14 +51,14 @@ export function buildClarify(question, terms = []) {
   // ③ 立场
   const stancePrompt = {
     id: "stance",
-    dimension: "立场",
+    dimension: "观点平衡",
     text: "说句不中听的：多数人只搜支持自己判断的信息。这次你想要哪种？",
     options: [
-      { value: "balance", label: "中立全面", hint: "正反都给，自行判断", group: "stance" },
-      { value: "counter", label: "我就要听反对的", hint: "加强反面搜索，专治确认偏误", group: "stance" },
-      { value: "support", label: "我要找支持依据", hint: "加重一手 / 官方来源权重", group: "stance" },
-      { value: "mainstream", label: "主流共识", hint: "找被多数人接受的观点", group: "stance" },
-      { value: "academic", label: "学界观点", hint: "优先学术 / 论文 / 研究报告", group: "stance" },
+      { value: "auto_counter", label: "自动两面（推荐）", hint: "默认 2 条反例，你勾选才复制", group: "stance" },
+      { value: "balance", label: "只要中立", hint: "不额外加强反面", group: "stance" },
+      { value: "counter", label: "加重反面", hint: "增加 1 条深度反例，专治确认偏误", group: "stance" },
+      { value: "support", label: "只要支持依据", hint: "不附反例", group: "stance" },
+      { value: "academic", label: "只要学界观点", hint: "不附反例", group: "stance" },
     ],
     allow_free: true,
     free_hint: "其他立场（如「特定利益相关方」）",
