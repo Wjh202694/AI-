@@ -142,29 +142,53 @@ function renderMatrix(terms, queries) {
   const wrap = $("#matrix-groups");
   wrap.innerHTML = "";
 
-  const groups = {};
-  queries.forEach((q) => {
-    (groups[q.group] = groups[q.group] || { name: q.group_name, items: [] }).items.push(q);
+  // 为每个检索式生成一张独立卡片（用户可逐条复制）
+  queries.forEach((q, idx) => {
+    const isCounter = (q.group === "E") || (q.group_name && q.group_name.includes("反面"));
+    const card = document.createElement("div");
+    card.className = "query-card" + (isCounter ? " counter" : "");
+    const isWarn = q.note && q.note.startsWith("⚠");
+    const noteHtml = isWarn
+      ? `<span class="warn">${escapeHtml(q.note)}</span>`
+      : escapeHtml(q.note || "");
+    card.dataset.idx = String(idx);
+    card.innerHTML = `
+      <div class="qc-head">
+        <span class="qc-angle">${escapeHtml(q.group_name || q.group)}</span>
+        <button type="button" class="qc-copy" title="复制这条检索式">📋 复制</button>
+      </div>
+      <div class="qc-body">
+        <input type="text" class="qc-text" value="${escapeHtml(q.query)}">
+      </div>
+      <div class="qc-note">${noteHtml}</div>`;
+    wrap.appendChild(card);
   });
 
-  const entries = Object.entries(groups).sort(([a]) => (a === "E" ? 1 : 0));
-  for (const [g, info] of entries) {
-    const div = document.createElement("div");
-    div.className = "qgroup" + (g === "E" ? " counter" : "");
-    div.innerHTML = `<div class="qgroup-head">${escapeHtml(info.name)}</div>`;
-    info.items.forEach((q, i) => {
-      const row = document.createElement("div");
-      row.className = "qitem";
-      const noteHtml = q.note && q.note.startsWith("⚠")
-        ? `<span class="warn">${escapeHtml(q.note)}</span>`
-        : escapeHtml(q.note || '');
-      row.innerHTML = `
-        <input type="checkbox" ${q.checked ? "checked" : ""} data-i="${i}">
-        <input type="text" class="qtext" value="${escapeHtml(q.query)}" data-i="${i}">
-        <span class="qnote">${noteHtml}</span>`;
-      div.appendChild(row);
-    });
-    wrap.appendChild(div);
+  // 为每张卡片绑定复制按钮
+  wrap.querySelectorAll(".query-card").forEach((card) => {
+    const copyBtn = card.querySelector(".qc-copy");
+    const textInput = card.querySelector(".qc-text");
+    if (copyBtn && textInput) {
+      copyBtn.addEventListener("click", () => copyOne(textInput.value.trim()));
+    }
+    // 用户编辑文本后，回写 state.queries（便于复制全部时同步）
+    if (textInput) {
+      textInput.addEventListener("input", () => {
+        const idx = Number(card.dataset.idx);
+        if (state.queries[idx]) state.queries[idx].query = textInput.value;
+      });
+    }
+  });
+}
+
+// 复制单条检索式到剪贴板
+async function copyOne(text) {
+  if (!text) { toast("检索式为空"); return; }
+  try {
+    await navigator.clipboard.writeText(text);
+    toast(`已复制：「${text.slice(0, 28)}${text.length > 28 ? "…" : ""}」`);
+  } catch (e) {
+    toast("复制失败，请手动选择");
   }
 }
 
@@ -196,26 +220,22 @@ function refinePlan() {
   $("#plan-panel").scrollIntoView({ behavior: "smooth", block: "nearest" });
 }
 
-function collectChecked() {
-  const checked = [];
-  document.querySelectorAll("#matrix-groups .qgroup").forEach((group) => {
-    group.querySelectorAll(".qitem").forEach((row) => {
-      const cb = row.querySelector('input[type=checkbox]');
-      const txt = row.querySelector(".qtext");
-      if (cb && cb.checked && txt) {
-        checked.push(txt.value.trim());
-      }
-    });
+function collectAll() {
+  // 不需 checkbox：收集当前 DOM 中的所有检索式（按用户编辑过的最新值）
+  const out = [];
+  document.querySelectorAll("#matrix-groups .qc-text").forEach((inp) => {
+    const v = (inp.value || "").trim();
+    if (v) out.push(v);
   });
-  return checked.filter(Boolean);
+  return out;
 }
 
 async function copyAll() {
-  const queries = collectChecked();
-  if (!queries.length) { toast("请至少勾选一条"); return; }
+  const queries = collectAll();
+  if (!queries.length) { toast("没有检索式可复制"); return; }
   try {
     await navigator.clipboard.writeText(queries.join("\n"));
-    toast(`已复制 ${queries.length} 条检索式`);
+    toast(`已复制全部 ${queries.length} 条`);
   } catch (e) {
     toast("复制失败，请手动选择");
   }

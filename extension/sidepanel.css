@@ -158,45 +158,61 @@ textarea:focus { outline: none; border-color: var(--accent); }
   padding: 6px 10px; background: var(--paper-2);
   border-radius: 4px;
 }
-.qgroup {
+
+/* 每条检索式独立卡片 */
+.query-card {
   background: var(--paper-2);
   border: 1px solid var(--rule);
-  border-radius: 6px;
-  padding: 10px 12px; margin-bottom: 8px;
-}
-.qgroup-head {
-  font-size: 11px; font-weight: 700; color: var(--accent);
-  text-transform: uppercase; letter-spacing: .5px;
+  border-radius: 8px;
+  padding: 10px 12px;
   margin-bottom: 8px;
+  transition: border-color .15s;
 }
-.qgroup.counter .qgroup-head { color: #c25a1a; }
-.qgroup.counter {
+.query-card:hover { border-color: var(--ink); }
+.query-card.counter {
   background: #fff8ee;
   border-color: #f0c98c;
 }
 @media (prefers-color-scheme: dark) {
-  .qgroup.counter { background: #3a2a18; border-color: #6b4a28; }
+  .query-card.counter { background: #3a2a18; border-color: #6b4a28; }
 }
-.qitem .qnote .warn { color: #c25a1a; font-weight: 600; }
-.qitem {
-  display: flex; align-items: center; gap: 8px;
-  padding: 6px 0; border-top: 1px solid var(--rule);
-  font-size: 12.5px;
+.qc-head {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 6px; gap: 8px;
 }
-.qitem:first-of-type { border-top: none; }
-.qitem input[type=checkbox] {
-  width: 14px; height: 14px; cursor: pointer;
+.qc-angle {
+  font-size: 10.5px; font-weight: 700; color: var(--accent);
+  text-transform: uppercase; letter-spacing: .5px;
 }
-.qitem .qtext {
-  flex: 1; font-family: "SF Mono", Consolas, monospace;
-  font-size: 12px; color: var(--ink);
-  padding: 4px 8px;
-  border: 1px solid var(--rule); border-radius: 4px;
+.query-card.counter .qc-angle { color: #c25a1a; }
+.qc-copy {
+  background: var(--paper); border: 1px solid var(--rule);
+  border-radius: 6px; padding: 3px 10px;
+  font-size: 11.5px; cursor: pointer;
+  color: var(--ink-2);
+  font-family: var(--sans);
+  transition: all .15s;
+}
+.qc-copy:hover {
+  background: var(--ink); color: var(--paper); border-color: var(--ink);
+}
+.qc-body { margin-bottom: 6px; }
+.qc-text {
+  width: 100%; font-family: "SF Mono", Consolas, monospace;
+  font-size: 12.5px; color: var(--ink);
+  padding: 6px 10px;
+  border: 1px solid var(--rule); border-radius: 5px;
   background: var(--paper);
+  line-height: 1.5;
 }
-.qitem .qnote {
-  font-size: 10.5px; color: var(--ink-3); font-style: italic;
-  flex: 1; min-width: 0;
+.qc-text:focus { outline: none; border-color: var(--accent); }
+.qc-note {
+  font-size: 11px; color: var(--ink-3);
+  line-height: 1.5; font-style: italic;
+}
+.qc-note .warn { color: #c25a1a; font-weight: 600; font-style: normal; }
+@media (prefers-color-scheme: dark) {
+  .qc-note .warn { color: #ffae6b; }
 }
 
 .export-actions {
