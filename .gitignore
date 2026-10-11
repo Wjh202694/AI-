@@ -39,6 +39,13 @@ nul
 .DS_Store
 Thumbs.db
 
+# ===== GitHub Pages / 静态资源 =====
+# index.html 是 GitHub Pages 入口，已追踪
+# assets/ 是静态资源目录，已追踪
+# 任何静态资源生成的缓存都应被忽略
+*.html.gz
+.nojekyll
+
 # ===== 依赖 =====
 node_modules/
 

@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="搜绎 (Souyi) - 把含糊的问题，理成能搜的话。一个本地优先的智能检索助手。" />
+  <meta name="color-scheme" content="light dark" />
+  <title>搜绎 · 把含糊的问题，理成能搜的话</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23f6f0e1'/%3E%3Ctext x='16' y='23' font-size='22' text-anchor='middle' fill='%238a5a2b' font-family='Georgia,serif'%3ES%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+
+  <header class="site-header">
+    <div class="site-header-inner">
+      <a class="brand" href="./">
+        <span class="brand-mark" aria-hidden="true">搜</span>
+        <span class="brand-name">搜绎</span>
+        <span class="brand-sep" aria-hidden="true"></span>
+        <span class="brand-tag">文献检索</span>
+      </a>
+      <nav class="header-nav" aria-label="主导航">
+        <a href="#features">功能</a>
+        <a href="#how">使用</a>
+        <a href="#arch">架构</a>
+        <a href="https://github.com/Wjh202694/AI-" target="_blank" rel="noopener">GitHub ↗</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- Hero -->
+    <section class="hero">
+      <div class="hero-copy">
+        <p class="eyebrow">
+          <span class="status-dot"></span>
+          开源 · 本地优先
+        </p>
+        <h1>
+          把含糊的问题，<br>
+          <span class="serif-title">理成能搜的话。</span>
+        </h1>
+        <p class="hero-subtitle">
+          搜绎是一个智能检索助手。<br>
+          多角度追问盘问 · 多搜索引擎并发 · 内容相关度多维判定。
+        </p>
+        <p class="hero-description">
+          输入「考研人数」「如何做决策」，它会先帮你把问题拆细、列维度，再去 Bing/百度/微信公众号/学术数据库抓取，最后只把 <b>真的相关</b> 的文章摆在你面前。
+        </p>
+        <div class="hero-actions">
+          <a class="button button-primary" href="https://github.com/Wjh202694/AI-" target="_blank" rel="noopener">
+            <span>在 GitHub 查看</span>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M7 7h10v10"></path></svg>
+          </a>
+          <a class="text-link" href="#how">本地运行步骤 ↓</a>
+        </div>
+      </div>
+
+      <aside class="hero-demo" aria-label="搜绎界面示例">
+        <div class="demo-card">
+          <div class="demo-row demo-q">
+            <span class="demo-tag">问题</span>
+            <span class="demo-text">考研人数</span>
+          </div>
+          <div class="demo-arrow" aria-hidden="true">↓</div>
+          <div class="demo-row demo-p">
+            <div class="demo-pill">核心指向：考研 / 人数</div>
+            <div class="demo-pill">时间窗：最近 1 年</div>
+            <div class="demo-pill">立场：中立</div>
+            <div class="demo-pill">深度：决策依据</div>
+          </div>
+          <div class="demo-arrow" aria-hidden="true">↓</div>
+          <div class="demo-results">
+            <div class="demo-result demo-pri">
+              <span class="badge">一手</span>
+              <span class="demo-text">中国研究生招生信息网</span>
+            </div>
+            <div class="demo-result demo-pri">
+              <span class="badge">一手</span>
+              <span class="demo-text">教育部 2024 年统计公报</span>
+            </div>
+            <div class="demo-result demo-unsure">
+              <span class="badge">存疑</span>
+              <span class="demo-text">2024 考研报名人数 343 万</span>
+            </div>
+            <div class="demo-result demo-relax">
+              <span class="badge">⚠ 边缘</span>
+              <span class="demo-text">新东方考研年度报告</span>
+            </div>
+          </div>
+        </div>
+        <p class="demo-hint">示意图（实际界面更丰富）</p>
+      </aside>
+    </section>
+
+    <!-- Features -->
+    <section id="features" class="features-section">
+      <div class="section-heading">
+        <p class="eyebrow">核心能力</p>
+        <h2>五个维度，<br>把含糊问题<b>理细</b>。</h2>
+      </div>
+
+      <div class="feature-grid">
+        <article class="feature-card">
+          <div class="feature-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M12 3.5v3M12 17.5v3M3.5 12h3M17.5 12h3"/></svg>
+          </div>
+          <h3>多角度追问</h3>
+          <p>5 张盘问卡片（核心指向 / 时间窗 / 立场 / 用途 / 范围），含多选 + 互斥分组。</p>
+        </article>
+
+        <article class="feature-card">
+          <div class="feature-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          </div>
+          <h3>11 个数据源并发</h3>
+          <p>Bing · 百度 · 微信 · 头条 · OpenAlex 学术 · GitHub 代码等，单次搜索并发拉取。</p>
+        </article>
+
+        <article class="feature-card">
+          <div class="feature-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h4l3-9 4 18 3-9h4"/></svg>
+          </div>
+          <h3>3 档相关度过滤</h3>
+          <p>严格 80% · 平衡 60% · 宽松 30%。用户自选档位，⚠️ 边缘结果带警告标签。</p>
+        </article>
+
+        <article class="feature-card">
+          <div class="feature-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5l6.5 2.6v4.9c0 3.9-2.7 6.6-6.5 8-3.8-1.4-6.5-4.1-6.5-8V6.1z"/><path d="M9.4 11.9l1.9 1.9 3.5-3.7"/></svg>
+          </div>
+          <h3>一手 / 二手溯源</h3>
+          <p>每条结果标注权威等级（gov.cn / 自媒体 / PDF / 学术），可一键导出 Markdown 笔记。</p>
+        </article>
+
+        <article class="feature-card">
+          <div class="feature-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M8 4v16"/></svg>
+          </div>
+          <h3>SQLite 历史 + 点击埋点</h3>
+          <p>搜索过的都能回看；点过的链接会被记住，下次搜索时优先排前面。</p>
+        </article>
+
+        <article class="feature-card">
+          <div class="feature-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </div>
+          <h3>本地优先</h3>
+          <p>所有数据存本地 SQLite，无云端依赖。隐私安全，跑在你自己电脑上。</p>
+        </article>
+      </div>
+    </section>
+
+    <!-- How to run -->
+    <section id="how" class="how-section">
+      <div class="section-heading">
+        <p class="eyebrow">本地运行</p>
+        <h2>5 分钟跑起来。</h2>
+        <p>需要 Python 3.10+。Windows 用户有专属脚本。</p>
+      </div>
+
+      <div class="how-steps">
+        <div class="how-step">
+          <span class="step-num">01</span>
+          <div>
+            <h3>克隆仓库</h3>
+<pre><code>git clone https://github.com/Wjh202694/AI-.git
+cd AI-/search-agent</code></pre>
+          </div>
+        </div>
+
+        <div class="how-step">
+          <span class="step-num">02</span>
+          <div>
+            <h3>安装依赖</h3>
+<pre><code>pip install -r requirements.txt</code></pre>
+          </div>
+        </div>
+
+        <div class="how-step">
+          <span class="step-num">03</span>
+          <div>
+            <h3>启动服务</h3>
+<pre><code>python main.py</code></pre>
+            <p class="step-hint">Windows 用户可直接双击 <code>run.bat</code>。浏览器自动打开 http://127.0.0.1:8321/。</p>
+          </div>
+        </div>
+
+        <div class="how-step">
+          <span class="step-num">04</span>
+          <div>
+            <h3>开始用</h3>
+            <p>输入问题 → 5 张盘问卡片 → 检索方案 → 执行搜索。3 档相关度可随时切换。</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="how-tip">
+        <strong>提示</strong>：首次运行会自动打开浏览器。访问 127.0.0.1:8321 是本机专用，不会发送到任何云端。
+      </div>
+    </section>
+
+    <!-- Architecture -->
+    <section id="arch" class="arch-section">
+      <div class="section-heading">
+        <p class="eyebrow">架构</p>
+        <h2>前端 + 后端，<br>清晰分层。</h2>
+      </div>
+
+      <div class="arch-diagram">
+        <div class="arch-layer arch-frontend">
+          <div class="arch-label">前端</div>
+          <div class="arch-tech">原生 JavaScript · HTML · CSS</div>
+          <div class="arch-files">frontend/index.html · app.js · style.css</div>
+        </div>
+        <div class="arch-arrow" aria-hidden="true">↕  fetch / JSON</div>
+        <div class="arch-layer arch-backend">
+          <div class="arch-label">后端</div>
+          <div class="arch-tech">Python · FastAPI · uvicorn</div>
+          <div class="arch-files">backend/app.py · aggregator.py · fetch.py · 11 个 Provider</div>
+        </div>
+        <div class="arch-arrow" aria-hidden="true">↕  SQL</div>
+        <div class="arch-layer arch-data">
+          <div class="arch-label">存储</div>
+          <div class="arch-tech">SQLite · 文件缓存</div>
+          <div class="arch-files">data/history.db · clicks(url, count)</div>
+        </div>
+      </div>
+
+      <div class="arch-providers">
+        <h3>11 个搜索 Provider</h3>
+        <div class="provider-grid">
+          <span class="provider on">Bing</span>
+          <span class="provider on">百度</span>
+          <span class="provider on">微信搜一搜</span>
+          <span class="provider on">头条搜索</span>
+          <span class="provider on">OpenAlex 学术</span>
+          <span class="provider on">GitHub 代码</span>
+          <span class="provider">搜狗（备）</span>
+          <span class="provider">360（备）</span>
+          <span class="provider">神马（备）</span>
+          <span class="provider">中国搜索（备）</span>
+          <span class="provider">Brave / Mojeek / DDG（备）</span>
+        </div>
+        <p class="provider-note">主源同时跑全部查询；备用跑前 2 条。结果去重合并后再做内容相关度判定。</p>
+      </div>
+    </section>
+
+    <!-- Disclaimers -->
+    <section class="disclaimer-section">
+      <div class="disclaimer">
+        <h3>免责声明</h3>
+        <p>本项目仅供个人学习与研究使用。请勿用于：</p>
+        <ul>
+          <li>大规模商业爬虫</li>
+          <li>绕过网站服务条款</li>
+          <li>侵犯第三方权益</li>
+        </ul>
+        <p>使用本项目产生的法律责任由使用者自行承担。</p>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <a class="footer-title" href="./">搜绎</a>
+      <span>开源共创，期待你的探索。</span>
+      <a href="https://github.com/Wjh202694/AI-/blob/main/LICENSE">MIT License ↗</a>
+    </div>
+  </footer>
+
+  <script src="assets/script.js" defer></script>
+</body>
+</html>
