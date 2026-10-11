@@ -131,6 +131,7 @@ const ANGLES = [
     suffix: " 中国 美国 欧洲 日本 对比",
     note: "按地域拆解：中国 / 海外 / 特定地区 的差异",
     defaultChecked: false,
+    detectConflict: "country",
   },
   {
     key: "time",
@@ -162,6 +163,15 @@ const ANGLES = [
   },
 ];
 
+// 站点定向路由（按主题智能匹配）
+const SITE_ROUTES = [
+  { topics: ["政策", "数据", "统计", "经济", "人口", "就业", "收入", "房价"], site: "stats.gov.cn", name: "国家统计局" },
+  { topics: ["公司", "股票", "上市", "财报", "招股", "行业", "企业"], site: "cninfo.com.cn", name: "巨潮资讯网" },
+  { topics: ["政策", "法规", "通知", "规定", "国务院"], site: "gov.cn", name: "中国政府网" },
+  { topics: ["论文", "研究", "学术", "实验"], site: "arxiv.org", name: "论文预印本库" },
+  { topics: ["github", "代码", "开源", "实现"], site: "github.com", name: "GitHub" },
+];
+
 const COUNTER_WORDS = ["质疑", "反对", "风险", "失败", "争议", "后悔", "骗局", "问题"];
 const COUNTER_PHRASES = ["局限性", "副作用", "反面观点", "负面影响"];
 
@@ -169,7 +179,9 @@ const COUNTER_PHRASES = ["局限性", "副作用", "反面观点", "负面影响
  * 生成多角度检索矩阵
  * - 1 条原问题
  * - 6 个思考维度（人群/地域/时间/对比/量化/机制）
- * - 1-3 条反例（默认 2 条）
+ * - 高级指令：PDF 限定 + 精确短语（保留）
+ * - 站点定向：按主题智能匹配（保留）
+ * - 1-3 条反例
  */
 export function buildQueryMatrix(question, terms, jargon, answers = {}) {
   const a = answers || {};
@@ -178,6 +190,7 @@ export function buildQueryMatrix(question, terms, jargon, answers = {}) {
   const core = terms.slice(0, 4);
   const base = core.length ? core.join(" ") : q;
   const primary = core[0] || q;
+  const textAll = (q + " " + terms.join(" ")).toLowerCase();
 
   // 1. 原问题（必出）
   items.push({
@@ -187,22 +200,71 @@ export function buildQueryMatrix(question, terms, jargon, answers = {}) {
   });
 
   // 2. 6 个思考角度（衍生子问题）
+  const COUNTRY_WORDS = ["中国", "美国", "日本", "韩国", "欧洲", "德国", "法国", "英国", "俄罗斯", "印度", "日本", "加拿大", "澳洲", "澳大利亚"];
+  const containsCountry = COUNTRY_WORDS.some((c) => textAll.includes(c));
   for (const ang of ANGLES) {
+    let suffix = ang.suffix;
+    let note = ang.note;
+    // 冲突检测：原问题已含国家词时，地域维度不要再硬塞“中国”
+    if (ang.detectConflict === "country" && containsCountry) {
+      const otherCountries = COUNTRY_WORDS.filter((c) => !textAll.includes(c)).slice(0, 4);
+      suffix = " 对比 " + otherCountries.join(" ");
+      note = `按地域拆解：与其他地区（${otherCountries.slice(0, 2).join("、")} 等）对比`;
+    }
     items.push({
       group: ang.label, group_name: ang.label,
-      query: `${base}${ang.suffix}`,
+      query: `${base}${suffix}`,
       checked: ang.defaultChecked,
-      note: ang.note,
+      note: note,
     });
   }
 
-  // 3. 反例（默认 2 条，support/academic 时去掉）
+  // 3. 高级指令：PDF 文档 + 精确短语
+  items.push({
+    group: "高级指令", group_name: "📄 PDF 文档",
+    query: `${base} filetype:pdf`,
+    checked: true,
+    note: "限定 PDF：白皮书 / 报告 / 论文 / 研究，信息密度高",
+  });
+  if (core[0]) {
+    items.push({
+      group: "高级指令", group_name: "🔤 精确短语",
+      query: `"${core[0]}" ${base}`,
+      checked: false,
+      note: "精确短语匹配，锁定关键概念不被稀释",
+    });
+  }
+
+  // 4. 站点定向（按主题智能匹配）
+  let matchedRoutes = 0;
+  for (const route of SITE_ROUTES) {
+    if (route.topics.some((t) => textAll.includes(t))) {
+      items.push({
+        group: "站点定向", group_name: `🌐 ${route.name}`,
+        query: `${base} site:${route.site}`,
+        checked: false,
+        note: `直达一手来源：${route.name}（${route.site}）`,
+      });
+      matchedRoutes++;
+    }
+  }
+  // 没匹配到任何 routes → fallback 加 gov.cn
+  if (matchedRoutes === 0) {
+    items.push({
+      group: "站点定向", group_name: "🌐 政府网站",
+      query: `${base} site:gov.cn`,
+      checked: false,
+      note: "直达一手来源：政府网站（官方口径）",
+    });
+  }
+
+  // 5. 反面视角（默认 2 条，counter 时加 1 条，support/academic 时去掉）
   const stanceVals = Array.isArray(a.stance) ? a.stance : (a.stance ? [a.stance] : []);
   const skipCounter = stanceVals.includes("support") || stanceVals.includes("academic");
   if (!skipCounter) {
     const counterBase = primary;
-    const textAll = (q + " " + terms.join(" ")).toLowerCase().split(/\s+/);
-    const available = COUNTER_WORDS.filter((w) => !textAll.includes(w));
+    const textAllWords = textAll.split(/\s+/);
+    const available = COUNTER_WORDS.filter((w) => !textAllWords.includes(w));
     const w1 = available[0] || COUNTER_WORDS[0];
     const w2 = available[1] || COUNTER_WORDS[1] || COUNTER_PHRASES[0];
     items.push({
